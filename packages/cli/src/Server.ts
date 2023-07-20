@@ -910,7 +910,7 @@ export class Server extends AbstractServer {
 				};
 
 				const oauthRequestData = {
-					oauth_callback: `${this.urlService.webhookBaseUrl}${this.restEndpoint}/oauth1-credential/callback?cid=${credentialId}`,
+					oauth_callback: `${this.urlService.oauth1CallbackUrl}?cid=${credentialId}`,
 				};
 
 				await this.externalHooks.run('oauth1.authenticate', [oAuthOptions, oauthRequestData]);
