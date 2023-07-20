@@ -62,7 +62,6 @@ import type {
 } from '@/Interfaces';
 import { NodeTypes } from '@/NodeTypes';
 import { Push } from '@/push';
-import * as WebhookHelpers from '@/WebhookHelpers';
 import * as WorkflowHelpers from '@/WorkflowHelpers';
 import { getWorkflowOwner } from '@/UserManagement/UserManagementHelper';
 import { findSubworkflowStart, isWorkflowIdValid } from '@/utils';
@@ -72,6 +71,7 @@ import { InternalHooks } from '@/InternalHooks';
 import type { ExecutionMetadata } from '@db/entities/ExecutionMetadata';
 import { ExecutionRepository } from '@db/repositories';
 import { EventsService } from '@/services/events.service';
+import { URLService } from '@/services/url.service';
 
 const ERROR_TRIGGER_TYPE = config.getEnv('nodes.errorTriggerType');
 
@@ -95,9 +95,8 @@ export function executeErrorWorkflow(
 
 	let pastExecutionUrl: string | undefined;
 	if (executionId !== undefined) {
-		pastExecutionUrl = `${WebhookHelpers.getWebhookBaseUrl()}workflow/${
-			workflowData.id
-		}/executions/${executionId}`;
+		const { editorBaseUrl } = Container.get(URLService);
+		pastExecutionUrl = `${editorBaseUrl}workflow/${workflowData.id}/executions/${executionId}`;
 	}
 
 	if (fullRunData.data.resultData.error !== undefined) {
@@ -1142,28 +1141,22 @@ export async function getBase(
 	currentNodeParameters?: INodeParameters,
 	executionTimeoutTimestamp?: number,
 ): Promise<IWorkflowExecuteAdditionalData> {
-	const urlBaseWebhook = WebhookHelpers.getWebhookBaseUrl();
-
-	const timezone = config.getEnv('generic.timezone');
-	const webhookBaseUrl = urlBaseWebhook + config.getEnv('endpoints.webhook');
-	const webhookWaitingBaseUrl = urlBaseWebhook + config.getEnv('endpoints.webhookWaiting');
-	const webhookTestBaseUrl = urlBaseWebhook + config.getEnv('endpoints.webhookTest');
-
 	const [encryptionKey, variables] = await Promise.all([
 		UserSettings.getEncryptionKey(),
 		WorkflowHelpers.getVariables(),
 	]);
 
+	const { restBaseUrl, editorBaseUrl, webhookBaseUrl } = Container.get(URLService);
 	return {
 		credentialsHelper: new CredentialsHelper(encryptionKey),
 		encryptionKey,
 		executeWorkflow,
-		restApiUrl: urlBaseWebhook + config.getEnv('endpoints.rest'),
-		timezone,
-		instanceBaseUrl: urlBaseWebhook,
-		webhookBaseUrl,
-		webhookWaitingBaseUrl,
-		webhookTestBaseUrl,
+		restApiUrl: restBaseUrl,
+		timezone: config.getEnv('generic.timezone'),
+		editorBaseUrl,
+		webhookBaseUrl: webhookBaseUrl + config.getEnv('endpoints.webhook'),
+		webhookWaitingBaseUrl: webhookBaseUrl + config.getEnv('endpoints.webhookWaiting'),
+		webhookTestBaseUrl: webhookBaseUrl + config.getEnv('endpoints.webhookTest'),
 		currentNodeParameters,
 		executionTimeoutTimestamp,
 		userId,

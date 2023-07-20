@@ -26,7 +26,7 @@ import axios from 'axios';
 import https from 'https';
 import type { SamlLoginBinding } from './types';
 import { validateMetadata, validateResponse } from './samlValidator';
-import { getInstanceBaseUrl } from '@/UserManagement/UserManagementHelper';
+import { URLService } from '@/services/url.service';
 
 @Service()
 export class SamlService {
@@ -52,7 +52,6 @@ export class SamlService {
 		loginLabel: 'SAML',
 		wantAssertionsSigned: true,
 		wantMessageSigned: true,
-		relayState: getInstanceBaseUrl(),
 		signatureConfig: {
 			prefix: 'ds',
 			location: {
@@ -61,6 +60,10 @@ export class SamlService {
 			},
 		},
 	};
+
+	constructor(private readonly urlService: URLService) {
+		this._samlPreferences.relayState = urlService.editorBaseUrl;
+	}
 
 	public get samlPreferences(): SamlPreferences {
 		return {
@@ -138,14 +141,14 @@ export class SamlService {
 
 	private getRedirectLoginRequestUrl(relayState?: string): BindingContext {
 		const sp = this.getServiceProviderInstance();
-		sp.entitySetting.relayState = relayState ?? getInstanceBaseUrl();
+		sp.entitySetting.relayState = relayState ?? this.urlService.editorBaseUrl;
 		const loginRequest = sp.createLoginRequest(this.getIdentityProviderInstance(), 'redirect');
 		return loginRequest;
 	}
 
 	private getPostLoginRequestUrl(relayState?: string): PostBindingContext {
 		const sp = this.getServiceProviderInstance();
-		sp.entitySetting.relayState = relayState ?? getInstanceBaseUrl();
+		sp.entitySetting.relayState = relayState ?? this.urlService.editorBaseUrl;
 		const loginRequest = sp.createLoginRequest(
 			this.getIdentityProviderInstance(),
 			'post',

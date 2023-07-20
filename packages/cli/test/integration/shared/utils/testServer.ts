@@ -45,6 +45,7 @@ import { SamlController } from '@/sso/saml/routes/saml.controller.ee';
 import { EventBusController } from '@/eventbus/eventBus.controller';
 import { License } from '@/License';
 import { SourceControlController } from '@/environments/sourceControl/sourceControl.controller.ee';
+import { URLService } from '@/services/url.service';
 
 import * as testDb from '../../shared/testDb';
 import { AUTHLESS_ENDPOINTS, PUBLIC_API_REST_PATH_SEGMENT, REST_PATH_SEGMENT } from '../constants';
@@ -182,6 +183,7 @@ export const setupTestServer = ({
 			const externalHooks = Container.get(ExternalHooks);
 			const internalHooks = Container.get(InternalHooks);
 			const mailer = Container.get(UserManagementMailer);
+			const urlService = Container.get(URLService);
 			const repositories = Db.collections;
 
 			for (const group of functionEndpoints) {
@@ -259,6 +261,7 @@ export const setupTestServer = ({
 								internalHooks,
 								repositories,
 								activeWorkflowRunner: Container.get(ActiveWorkflowRunner),
+								urlService,
 								logger,
 							}),
 						);

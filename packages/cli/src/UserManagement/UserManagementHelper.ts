@@ -13,7 +13,6 @@ import type { Role } from '@db/entities/Role';
 import { RoleRepository } from '@db/repositories';
 import config from '@/config';
 import { License } from '@/License';
-import { getWebhookBaseUrl } from '@/WebhookHelpers';
 import type { PostHogClient } from '@/posthog';
 
 export async function getWorkflowOwner(workflowId: string): Promise<User> {
@@ -56,19 +55,6 @@ export async function getInstanceOwner(): Promise<User> {
 		},
 	});
 	return owner;
-}
-
-/**
- * Return the n8n instance base URL without trailing slash.
- */
-export function getInstanceBaseUrl(): string {
-	const n8nBaseUrl = config.getEnv('editorBaseUrl') || getWebhookBaseUrl();
-
-	return n8nBaseUrl.endsWith('/') ? n8nBaseUrl.slice(0, n8nBaseUrl.length - 1) : n8nBaseUrl;
-}
-
-export function generateUserInviteUrl(inviterId: string, inviteeId: string): string {
-	return `${getInstanceBaseUrl()}/signup?inviterId=${inviterId}&inviteeId=${inviteeId}`;
 }
 
 // TODO: Enforce at model level
@@ -159,13 +145,6 @@ export async function withFeatureFlags(
 	});
 
 	return Promise.race([fetchPromise, timeoutPromise]);
-}
-
-export function addInviteLinkToUser(user: PublicUser, inviterId: string): PublicUser {
-	if (user.isPending) {
-		user.inviteAcceptUrl = generateUserInviteUrl(inviterId, user.id);
-	}
-	return user;
 }
 
 export async function getUserById(userId: string): Promise<User> {

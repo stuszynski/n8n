@@ -22,6 +22,7 @@ import {
 } from './shared/random';
 import * as testDb from './shared/testDb';
 import * as utils from './shared/utils/';
+import { mock } from 'jest-mock-extended';
 
 jest.mock('@/UserManagement/email/NodeMailer');
 
@@ -495,7 +496,7 @@ describe('UserManagementMailer expect NodeMailer.verifyConnection', () => {
 	});
 
 	test('not be called when SMTP not set up', async () => {
-		const userManagementMailer = new UserManagementMailer();
+		const userManagementMailer = new UserManagementMailer(mock());
 		// NodeMailer.verifyConnection gets called only explicitly
 		await expect(async () => userManagementMailer.verifyConnection()).rejects.toThrow();
 
@@ -507,7 +508,7 @@ describe('UserManagementMailer expect NodeMailer.verifyConnection', () => {
 		config.set('userManagement.emails.smtp.host', 'host');
 		config.set('userManagement.emails.mode', 'smtp');
 
-		const userManagementMailer = new UserManagementMailer();
+		const userManagementMailer = new UserManagementMailer(mock());
 		// NodeMailer.verifyConnection gets called only explicitly
 		expect(async () => userManagementMailer.verifyConnection()).not.toThrow();
 	});

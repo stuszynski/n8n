@@ -17,6 +17,7 @@ import type {
 } from 'n8n-workflow';
 import { LoggerProxy, jsonStringify } from 'n8n-workflow';
 import { resolve as pathResolve } from 'path';
+import { Container } from 'typedi';
 
 import * as Db from '@/Db';
 import * as ResponseHelper from '@/ResponseHelper';
@@ -31,8 +32,7 @@ import { getLogger } from '@/Logger';
 import type { OAuthRequest } from '@/requests';
 import { ExternalHooks } from '@/ExternalHooks';
 import config from '@/config';
-import { getInstanceBaseUrl } from '@/UserManagement/UserManagementHelper';
-import { Container } from 'typedi';
+import { URLService } from '@/services/url.service';
 
 export const oauth2CredentialController = express.Router();
 
@@ -47,8 +47,6 @@ oauth2CredentialController.use((req, res, next) => {
 	}
 	next();
 });
-
-const restEndpoint = config.getEnv('endpoints.rest');
 
 /**
  * GET /oauth2-credential/auth
@@ -122,13 +120,14 @@ oauth2CredentialController.get(
 		};
 		const stateEncodedStr = Buffer.from(JSON.stringify(state)).toString('base64');
 
+		const { oauth2CallbackUrl } = Container.get(URLService);
 		const scopes = get(oauthCredentials, 'scope', 'openid') as string;
 		const oAuthOptions: ClientOAuth2Options = {
 			clientId: get(oauthCredentials, 'clientId') as string,
 			clientSecret: get(oauthCredentials, 'clientSecret', '') as string,
 			accessTokenUri: get(oauthCredentials, 'accessTokenUrl', '') as string,
 			authorizationUri: get(oauthCredentials, 'authUrl', '') as string,
-			redirectUri: `${getInstanceBaseUrl()}/${restEndpoint}/oauth2-credential/callback`,
+			redirectUri: oauth2CallbackUrl,
 			scopes: split(scopes, ','),
 			scopesSeparator: scopes.includes(',') ? ',' : ' ',
 			state: stateEncodedStr,
@@ -256,13 +255,14 @@ oauth2CredentialController.get(
 
 			let options: Partial<ClientOAuth2Options> = {};
 
+			const { oauth2CallbackUrl } = Container.get(URLService);
 			const scopes = get(oauthCredentials, 'scope', 'openid') as string;
 			const oAuth2Parameters: ClientOAuth2Options = {
 				clientId: get(oauthCredentials, 'clientId') as string,
 				clientSecret: get(oauthCredentials, 'clientSecret', '') as string,
 				accessTokenUri: get(oauthCredentials, 'accessTokenUrl', '') as string,
 				authorizationUri: get(oauthCredentials, 'authUrl', '') as string,
-				redirectUri: `${getInstanceBaseUrl()}/${restEndpoint}/oauth2-credential/callback`,
+				redirectUri: oauth2CallbackUrl,
 				scopes: split(scopes, ','),
 				scopesSeparator: scopes.includes(',') ? ',' : ' ',
 			};

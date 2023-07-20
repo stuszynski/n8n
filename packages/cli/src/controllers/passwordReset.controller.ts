@@ -8,11 +8,7 @@ import {
 	UnauthorizedError,
 	UnprocessableRequestError,
 } from '@/ResponseHelper';
-import {
-	getInstanceBaseUrl,
-	hashPassword,
-	validatePassword,
-} from '@/UserManagement/UserManagementHelper';
+import { hashPassword, validatePassword } from '@/UserManagement/UserManagementHelper';
 import type { UserManagementMailer } from '@/UserManagement/email';
 
 import { Response } from 'express';
@@ -137,7 +133,6 @@ export class PasswordResetController {
 			throw new UnprocessableRequestError('forgotPassword.ldapUserPasswordResetUnavailable');
 		}
 
-		const baseUrl = getInstanceBaseUrl();
 		const { id, firstName, lastName } = user;
 		const url = await UserService.generatePasswordResetUrl(user);
 
@@ -147,7 +142,6 @@ export class PasswordResetController {
 				firstName,
 				lastName,
 				passwordResetUrl: url,
-				domain: baseUrl,
 			});
 		} catch (error) {
 			void this.internalHooks.onEmailFailed({

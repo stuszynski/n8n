@@ -52,7 +52,6 @@ import type {
 	IWorkflowDb,
 	IWorkflowExecutionDataProcess,
 } from '@/Interfaces';
-import * as GenericHelpers from '@/GenericHelpers';
 import * as ResponseHelper from '@/ResponseHelper';
 import * as WorkflowHelpers from '@/WorkflowHelpers';
 import { WorkflowRunner } from '@/WorkflowRunner';
@@ -694,15 +693,4 @@ export async function executeWebhook(
 
 		throw new ResponseHelper.InternalServerError(e.message);
 	}
-}
-
-/**
- * Returns the base URL of the webhooks
- */
-export function getWebhookBaseUrl() {
-	let urlBaseWebhook = process.env.WEBHOOK_URL ?? GenericHelpers.getBaseUrl();
-	if (!urlBaseWebhook.endsWith('/')) {
-		urlBaseWebhook += '/';
-	}
-	return urlBaseWebhook;
 }

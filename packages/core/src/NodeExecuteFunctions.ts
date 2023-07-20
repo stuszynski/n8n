@@ -2165,7 +2165,7 @@ const getCommonWorkflowFunctions = (
 	getWorkflowStaticData: (type) => workflow.getStaticData(type, node),
 
 	getRestApiUrl: () => additionalData.restApiUrl,
-	getInstanceBaseUrl: () => additionalData.instanceBaseUrl,
+	getEditorBaseUrl: () => additionalData.editorBaseUrl,
 	getTimezone: () => getTimezone(workflow, additionalData),
 });
 

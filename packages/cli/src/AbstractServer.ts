@@ -15,7 +15,6 @@ import config from '@/config';
 import { N8N_VERSION, inDevelopment } from '@/constants';
 import { ActiveWorkflowRunner } from '@/ActiveWorkflowRunner';
 import * as Db from '@/Db';
-import type { IExternalHooksClass } from '@/Interfaces';
 import { ExternalHooks } from '@/ExternalHooks';
 import {
 	send,
@@ -34,49 +33,36 @@ const emptyBuffer = Buffer.alloc(0);
 export abstract class AbstractServer {
 	protected server: Server;
 
-	protected app: express.Application;
+	protected app = express();
 
-	protected externalHooks: IExternalHooksClass;
+	protected externalHooks = Container.get(ExternalHooks);
 
-	protected activeWorkflowRunner: ActiveWorkflowRunner;
+	protected activeWorkflowRunner = Container.get(ActiveWorkflowRunner);
 
-	protected protocol: string;
+	readonly port = config.getEnv('port');
 
-	protected sslKey: string;
+	readonly protocol = config.getEnv('protocol');
 
-	protected sslCert: string;
+	readonly sslKey = config.getEnv('ssl_key');
 
-	protected timezone: string;
+	readonly sslCert = config.getEnv('ssl_cert');
 
-	protected restEndpoint: string;
+	readonly timezone = config.getEnv('generic.timezone');
 
-	protected endpointWebhook: string;
+	readonly restEndpoint = config.getEnv('endpoints.rest');
 
-	protected endpointWebhookTest: string;
+	readonly endpointWebhook = config.getEnv('endpoints.webhook');
 
-	protected endpointWebhookWaiting: string;
+	readonly endpointWebhookTest = config.getEnv('endpoints.webhookTest');
+
+	readonly endpointWebhookWaiting = config.getEnv('endpoints.webhookWaiting');
 
 	protected instanceId = '';
 
 	abstract configure(): Promise<void>;
 
 	constructor() {
-		this.app = express();
 		this.app.disable('x-powered-by');
-
-		this.protocol = config.getEnv('protocol');
-		this.sslKey = config.getEnv('ssl_key');
-		this.sslCert = config.getEnv('ssl_cert');
-
-		this.timezone = config.getEnv('generic.timezone');
-
-		this.restEndpoint = config.getEnv('endpoints.rest');
-		this.endpointWebhook = config.getEnv('endpoints.webhook');
-		this.endpointWebhookTest = config.getEnv('endpoints.webhookTest');
-		this.endpointWebhookWaiting = config.getEnv('endpoints.webhookWaiting');
-
-		this.externalHooks = Container.get(ExternalHooks);
-		this.activeWorkflowRunner = Container.get(ActiveWorkflowRunner);
 	}
 
 	private async setupErrorHandlers() {
@@ -424,23 +410,23 @@ export abstract class AbstractServer {
 			this.server = http.createServer(app);
 		}
 
-		const PORT = config.getEnv('port');
 		const ADDRESS = config.getEnv('listen_address');
 
 		this.server.on('error', (error: Error & { code: string }) => {
 			if (error.code === 'EADDRINUSE') {
 				console.log(
-					`n8n's port ${PORT} is already in use. Do you have another instance of n8n running already?`,
+					`n8n's port ${this.port} is already in use. Do you have another instance of n8n running already?`,
 				);
 				process.exit(1);
 			}
 		});
 
-		await new Promise<void>((resolve) => this.server.listen(PORT, ADDRESS, () => resolve()));
+		await new Promise<void>((resolve) => this.server.listen(this.port, ADDRESS, () => resolve()));
 
 		await this.setupHealthCheck();
 
-		console.log(`n8n ready on ${ADDRESS}, port ${PORT}`);
+		console.log(`Version: ${N8N_VERSION}`);
+		console.log(`n8n ready on ${ADDRESS}, port ${this.port}`);
 	}
 
 	async start(): Promise<void> {
@@ -452,7 +438,6 @@ export abstract class AbstractServer {
 		}
 
 		await this.configure();
-		console.log(`Version: ${N8N_VERSION}`);
 
 		const defaultLocale = config.getEnv('defaultLocale');
 		if (defaultLocale !== 'en') {

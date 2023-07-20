@@ -1,13 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unnecessary-boolean-literal-compare */
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
-/* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-invalid-void-type */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
-/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import assert from 'assert';
@@ -102,12 +99,7 @@ import {
 
 import { executionsController } from '@/executions/executions.controller';
 import { isApiEnabled, loadPublicApiVersions } from '@/PublicApi';
-import {
-	getInstanceBaseUrl,
-	isEmailSetUp,
-	isSharingEnabled,
-	whereClause,
-} from '@/UserManagement/UserManagementHelper';
+import { isEmailSetUp, isSharingEnabled, whereClause } from '@/UserManagement/UserManagementHelper';
 import { UserManagementMailer } from '@/UserManagement/email';
 import * as Db from '@/Db';
 import type {
@@ -128,7 +120,6 @@ import { LoadNodesAndCredentials } from '@/LoadNodesAndCredentials';
 import { NodeTypes } from '@/NodeTypes';
 import * as ResponseHelper from '@/ResponseHelper';
 import { WaitTracker } from '@/WaitTracker';
-import * as WebhookHelpers from '@/WebhookHelpers';
 import * as WorkflowExecuteAdditionalData from '@/WorkflowExecuteAdditionalData';
 import { toHttpNodeParameters } from '@/CurlConverterHelper';
 import { EventBusController } from '@/eventbus/eventBus.controller';
@@ -169,6 +160,7 @@ import { SourceControlService } from '@/environments/sourceControl/sourceControl
 import { SourceControlController } from '@/environments/sourceControl/sourceControl.controller.ee';
 import { ExecutionRepository } from '@db/repositories';
 import type { ExecutionEntity } from '@db/entities/ExecutionEntity';
+import { URLService } from '@/services/url.service';
 
 const exec = promisify(callbackExec);
 
@@ -193,6 +185,8 @@ export class Server extends AbstractServer {
 
 	push: Push;
 
+	urlService = Container.get(URLService);
+
 	constructor() {
 		super();
 
@@ -200,7 +194,6 @@ export class Server extends AbstractServer {
 		this.app.set('view engine', 'handlebars');
 		this.app.set('views', TEMPLATES_DIR);
 
-		const urlBaseWebhook = WebhookHelpers.getWebhookBaseUrl();
 		const telemetrySettings: ITelemetrySettings = {
 			enabled: config.getEnv('diagnostics.enabled'),
 		};
@@ -217,9 +210,6 @@ export class Server extends AbstractServer {
 			telemetrySettings.config = { key, url };
 		}
 
-		// Define it here to avoid calling the function multiple times
-		const instanceBaseUrl = getInstanceBaseUrl();
-
 		this.frontendSettings = {
 			endpointWebhook: this.endpointWebhook,
 			endpointWebhookTest: this.endpointWebhookTest,
@@ -230,12 +220,12 @@ export class Server extends AbstractServer {
 			maxExecutionTimeout: config.getEnv('executions.maxTimeout'),
 			workflowCallerPolicyDefaultOption: config.getEnv('workflows.callerPolicyDefaultOption'),
 			timezone: this.timezone,
-			urlBaseWebhook,
-			urlBaseEditor: instanceBaseUrl,
+			urlBaseWebhook: '',
+			urlBaseEditor: '',
 			versionCli: '',
 			oauthCallbackUrls: {
-				oauth1: `${instanceBaseUrl}/${this.restEndpoint}/oauth1-credential/callback`,
-				oauth2: `${instanceBaseUrl}/${this.restEndpoint}/oauth2-credential/callback`,
+				oauth1: '',
+				oauth2: '',
 			},
 			versionNotifications: {
 				enabled: config.getEnv('versionNotifications.enabled'),
@@ -400,6 +390,14 @@ export class Server extends AbstractServer {
 	 * Returns the current settings for the frontend
 	 */
 	getSettingsForFrontend(): IN8nUISettings {
+		const { editorBaseUrl, webhookBaseUrl } = this.urlService;
+		this.frontendSettings.urlBaseEditor = editorBaseUrl;
+		this.frontendSettings.urlBaseWebhook = webhookBaseUrl;
+		this.frontendSettings.oauthCallbackUrls = {
+			oauth1: this.urlService.oauth1CallbackUrl,
+			oauth2: this.urlService.oauth2CallbackUrl,
+		};
+
 		// refresh user management status
 		Object.assign(this.frontendSettings.userManagement, {
 			quota: Container.get(License).getUsersLimit(),
@@ -455,7 +453,7 @@ export class Server extends AbstractServer {
 	}
 
 	private async registerControllers(ignoredEndpoints: Readonly<string[]>) {
-		const { app, externalHooks, activeWorkflowRunner, nodeTypes } = this;
+		const { app, externalHooks, activeWorkflowRunner, nodeTypes, urlService } = this;
 		const repositories = Db.collections;
 		setupAuthMiddlewares(app, ignoredEndpoints, this.restEndpoint);
 
@@ -488,6 +486,7 @@ export class Server extends AbstractServer {
 				repositories,
 				activeWorkflowRunner,
 				logger,
+				urlService,
 				postHog,
 			}),
 			Container.get(SamlController),
@@ -687,10 +686,7 @@ export class Server extends AbstractServer {
 		this.app.get(
 			`/${this.restEndpoint}/nodes-list-search`,
 			ResponseHelper.send(
-				async (
-					req: NodeListSearchRequest,
-					res: express.Response,
-				): Promise<INodeListSearchResult | undefined> => {
+				async (req: NodeListSearchRequest): Promise<INodeListSearchResult | undefined> => {
 					const nodeTypeAndVersion = jsonParse(
 						req.query.nodeTypeAndVersion,
 					) as INodeTypeNameVersion;
@@ -743,10 +739,7 @@ export class Server extends AbstractServer {
 		this.app.get(
 			`/${this.restEndpoint}/get-mapping-fields`,
 			ResponseHelper.send(
-				async (
-					req: ResourceMapperRequest,
-					res: express.Response,
-				): Promise<ResourceMapperFields | undefined> => {
+				async (req: ResourceMapperRequest): Promise<ResourceMapperFields | undefined> => {
 					const nodeTypeAndVersion = jsonParse(
 						req.query.nodeTypeAndVersion,
 					) as INodeTypeNameVersion;
@@ -839,21 +832,16 @@ export class Server extends AbstractServer {
 		// ----------------------------------------
 		this.app.post(
 			`/${this.restEndpoint}/curl-to-json`,
-			ResponseHelper.send(
-				async (
-					req: CurlHelper.ToJson,
-					res: express.Response,
-				): Promise<{ [key: string]: string }> => {
-					const curlCommand = req.body.curlCommand ?? '';
+			ResponseHelper.send(async (req: CurlHelper.ToJson): Promise<{ [key: string]: string }> => {
+				const curlCommand = req.body.curlCommand ?? '';
 
-					try {
-						const parameters = toHttpNodeParameters(curlCommand);
-						return ResponseHelper.flattenObject(parameters, 'parameters');
-					} catch (e) {
-						throw new ResponseHelper.BadRequestError('Invalid cURL command');
-					}
-				},
-			),
+				try {
+					const parameters = toHttpNodeParameters(curlCommand);
+					return ResponseHelper.flattenObject(parameters, 'parameters');
+				} catch (e) {
+					throw new ResponseHelper.BadRequestError('Invalid cURL command');
+				}
+			}),
 		);
 
 		// ----------------------------------------
@@ -922,9 +910,7 @@ export class Server extends AbstractServer {
 				};
 
 				const oauthRequestData = {
-					oauth_callback: `${WebhookHelpers.getWebhookBaseUrl()}${
-						this.restEndpoint
-					}/oauth1-credential/callback?cid=${credentialId}`,
+					oauth_callback: `${this.urlService.webhookBaseUrl}${this.restEndpoint}/oauth1-credential/callback?cid=${credentialId}`,
 				};
 
 				await this.externalHooks.run('oauth1.authenticate', [oAuthOptions, oauthRequestData]);
@@ -1321,9 +1307,7 @@ export class Server extends AbstractServer {
 		// Returns all the available timezones
 		this.app.get(
 			`/${this.restEndpoint}/options/timezones`,
-			ResponseHelper.send(async (req: express.Request, res: express.Response): Promise<object> => {
-				return timezones;
-			}),
+			ResponseHelper.send(async (): Promise<object> => timezones),
 		);
 
 		// ----------------------------------------
@@ -1339,6 +1323,7 @@ export class Server extends AbstractServer {
 				const binaryDataManager = BinaryDataManager.getInstance();
 				try {
 					const binaryPath = binaryDataManager.getBinaryPath(identifier);
+					// eslint-disable-next-line prefer-const
 					let { mode, fileName, mimeType } = req.query;
 					if (!fileName || !mimeType) {
 						try {
@@ -1367,13 +1352,11 @@ export class Server extends AbstractServer {
 		// Returns the current settings for the UI
 		this.app.get(
 			`/${this.restEndpoint}/settings`,
-			ResponseHelper.send(
-				async (req: express.Request, res: express.Response): Promise<IN8nUISettings> => {
-					void Container.get(InternalHooks).onFrontendSettingsAPI(req.headers.sessionid as string);
+			ResponseHelper.send(async (req: express.Request): Promise<IN8nUISettings> => {
+				void Container.get(InternalHooks).onFrontendSettingsAPI(req.headers.sessionid as string);
 
-					return this.getSettingsForFrontend();
-				},
-			),
+				return this.getSettingsForFrontend();
+			}),
 		);
 
 		// ----------------------------------------
@@ -1440,6 +1423,7 @@ export class Server extends AbstractServer {
 			};
 
 			const serveIcons: express.RequestHandler = async (req, res) => {
+				// eslint-disable-next-line prefer-const
 				let { scope, packageName } = req.params;
 				if (scope) packageName = `@${scope}/${packageName}`;
 				const loader = this.loadNodesAndCredentials.loaders[packageName];

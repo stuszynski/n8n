@@ -731,7 +731,7 @@ export interface FunctionsBase {
 	getWorkflowStaticData(type: string): IDataObject;
 	getTimezone(): string;
 	getRestApiUrl(): string;
-	getInstanceBaseUrl(): string;
+	getEditorBaseUrl(): string;
 
 	getMode?: () => WorkflowExecuteMode;
 	getActivationMode?: () => WorkflowActivateMode;
@@ -1741,7 +1741,7 @@ export interface IWorkflowExecuteAdditionalData {
 	httpResponse?: express.Response;
 	httpRequest?: express.Request;
 	restApiUrl: string;
-	instanceBaseUrl: string;
+	editorBaseUrl: string;
 	setExecutionStatus?: (status: ExecutionStatus) => void;
 	sendMessageToUI?: (source: string, message: any) => void;
 	timezone: string;

@@ -1,6 +1,7 @@
 import set from 'lodash/set';
 
 import type {
+	IExecuteFunctions,
 	INodeExecutionData,
 	INodeParameters,
 	INodeTypeData,
@@ -8,8 +9,6 @@ import type {
 	WorkflowTestData,
 } from 'n8n-workflow';
 import { deepCopy } from 'n8n-workflow';
-
-import type { IExecuteFunctions } from '@/Interfaces';
 
 export const predefinedNodesTypes: INodeTypeData = {
 	'n8n-nodes-base.if': {

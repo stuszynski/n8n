@@ -7,9 +7,6 @@ import { SharedCredentials } from '@db/entities/SharedCredentials';
 import { SharedWorkflow } from '@db/entities/SharedWorkflow';
 import { Authorized, NoAuthRequired, Delete, Get, Post, RestController, Patch } from '@/decorators';
 import {
-	addInviteLinkToUser,
-	generateUserInviteUrl,
-	getInstanceBaseUrl,
 	hashPassword,
 	isEmailSetUp,
 	sanitizeUser,
@@ -49,6 +46,7 @@ import { plainToInstance } from 'class-transformer';
 import { License } from '@/License';
 import { Container } from 'typedi';
 import { RESPONSE_ERROR_MESSAGES } from '@/constants';
+import type { URLService } from '@/services/url.service';
 
 @Authorized(['global', 'owner'])
 @RestController('/users')
@@ -73,6 +71,8 @@ export class UsersController {
 
 	private mailer: UserManagementMailer;
 
+	private urlService: URLService;
+
 	private postHog?: PostHogClient;
 
 	constructor({
@@ -83,6 +83,7 @@ export class UsersController {
 		repositories,
 		activeWorkflowRunner,
 		mailer,
+		urlService,
 		postHog,
 	}: {
 		config: Config;
@@ -95,6 +96,7 @@ export class UsersController {
 		>;
 		activeWorkflowRunner: ActiveWorkflowRunner;
 		mailer: UserManagementMailer;
+		urlService: URLService;
 		postHog?: PostHogClient;
 	}) {
 		this.config = config;
@@ -107,6 +109,7 @@ export class UsersController {
 		this.sharedWorkflowRepository = repositories.SharedWorkflow;
 		this.activeWorkflowRunner = activeWorkflowRunner;
 		this.mailer = mailer;
+		this.urlService = urlService;
 		this.postHog = postHog;
 	}
 
@@ -221,8 +224,6 @@ export class UsersController {
 			userShells: createUsers,
 		});
 
-		const baseUrl = getInstanceBaseUrl();
-
 		const usersPendingSetup = Object.entries(createUsers).filter(([email, id]) => id && email);
 
 		// send invite email to new or not yet setup users
@@ -233,7 +234,7 @@ export class UsersController {
 					// This should never happen since those are removed from the list before reaching this point
 					throw new InternalServerError('User ID is missing for user with email address');
 				}
-				const inviteAcceptUrl = generateUserInviteUrl(req.user.id, id);
+				const inviteAcceptUrl = this.urlService.generateUserInviteUrl(req.user.id, id);
 				const resp: {
 					user: { id: string | null; email: string; inviteAcceptUrl: string; emailSent: boolean };
 					error?: string;
@@ -246,11 +247,7 @@ export class UsersController {
 					},
 				};
 				try {
-					const result = await this.mailer.invite({
-						email,
-						inviteAcceptUrl,
-						domain: baseUrl,
-					});
+					const result = await this.mailer.invite({ email, inviteAcceptUrl });
 					if (result.emailSent) {
 						resp.user.emailSent = true;
 						void this.internalHooks.onUserTransactionalEmail({
@@ -276,7 +273,6 @@ export class UsersController {
 						this.logger.error('Failed to send email', {
 							userId: req.user.id,
 							inviteAcceptUrl,
-							domain: baseUrl,
 							email,
 						});
 						resp.error = error.message;
@@ -368,8 +364,12 @@ export class UsersController {
 	async listUsers(req: UserRequest.List) {
 		const users = await this.userRepository.find({ relations: ['globalRole', 'authIdentities'] });
 		return users.map(
-			(user): PublicUser =>
-				addInviteLinkToUser(sanitizeUser(user, ['personalizationAnswers']), req.user.id),
+			(user): PublicUser => ({
+				...sanitizeUser(user, ['personalizationAnswers']),
+				...(user.isPending
+					? { inviteAcceptUrl: this.urlService.generateUserInviteUrl(req.user.id, user.id) }
+					: {}),
+			}),
 		);
 	}
 
@@ -598,14 +598,12 @@ export class UsersController {
 			throw new BadRequestError('User has already accepted the invite');
 		}
 
-		const baseUrl = getInstanceBaseUrl();
-		const inviteAcceptUrl = `${baseUrl}/signup?inviterId=${req.user.id}&inviteeId=${reinvitee.id}`;
+		const inviteAcceptUrl = this.urlService.generateUserInviteUrl(req.user.id, reinvitee.id);
 
 		try {
 			const result = await this.mailer.invite({
 				email: reinvitee.email,
 				inviteAcceptUrl,
-				domain: baseUrl,
 			});
 			if (result.emailSent) {
 				void this.internalHooks.onUserReinvite({
@@ -629,7 +627,6 @@ export class UsersController {
 			this.logger.error('Failed to send email', {
 				email: reinvitee.email,
 				inviteAcceptUrl,
-				domain: baseUrl,
 			});
 			throw new InternalServerError(`Failed to send email to ${reinvitee.email}`);
 		}

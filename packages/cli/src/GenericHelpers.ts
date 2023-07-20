@@ -15,7 +15,6 @@ import type {
 import { validate } from 'class-validator';
 import { Container } from 'typedi';
 import { Like } from 'typeorm';
-import config from '@/config';
 import * as Db from '@/Db';
 import type { ICredentialsDb, IExecutionDb, IWorkflowDb } from '@/Interfaces';
 import * as ResponseHelper from '@/ResponseHelper';
@@ -25,21 +24,6 @@ import type { TagEntity } from '@db/entities/TagEntity';
 import type { User } from '@db/entities/User';
 import type { UserUpdatePayload } from '@/requests';
 import { ExecutionRepository } from '@db/repositories';
-
-/**
- * Returns the base URL n8n is reachable from
- */
-export function getBaseUrl(): string {
-	const protocol = config.getEnv('protocol');
-	const host = config.getEnv('host');
-	const port = config.getEnv('port');
-	const path = config.getEnv('path');
-
-	if ((protocol === 'http' && port === 80) || (protocol === 'https' && port === 443)) {
-		return `${protocol}://${host}${path}`;
-	}
-	return `${protocol}://${host}:${port}${path}`;
-}
 
 /**
  * Returns the session id if one is set
