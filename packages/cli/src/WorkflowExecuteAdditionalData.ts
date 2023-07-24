@@ -71,7 +71,7 @@ import { InternalHooks } from '@/InternalHooks';
 import type { ExecutionMetadata } from '@db/entities/ExecutionMetadata';
 import { ExecutionRepository } from '@db/repositories';
 import { EventsService } from '@/services/events.service';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
 const ERROR_TRIGGER_TYPE = config.getEnv('nodes.errorTriggerType');
 
@@ -95,8 +95,8 @@ export function executeErrorWorkflow(
 
 	let pastExecutionUrl: string | undefined;
 	if (executionId !== undefined) {
-		const { editorBaseUrl } = Container.get(URLService);
-		pastExecutionUrl = `${editorBaseUrl}workflow/${workflowData.id}/executions/${executionId}`;
+		const { frontendUrl } = Container.get(UrlService);
+		pastExecutionUrl = `${frontendUrl}workflow/${workflowData.id}/executions/${executionId}`;
 	}
 
 	if (fullRunData.data.resultData.error !== undefined) {
@@ -1146,14 +1146,14 @@ export async function getBase(
 		WorkflowHelpers.getVariables(),
 	]);
 
-	const { restBaseUrl, editorBaseUrl, webhookBaseUrl } = Container.get(URLService);
+	const { restBaseUrl, frontendUrl, webhookBaseUrl } = Container.get(UrlService);
 	return {
 		credentialsHelper: new CredentialsHelper(encryptionKey),
 		encryptionKey,
 		executeWorkflow,
 		restApiUrl: restBaseUrl,
 		timezone: config.getEnv('generic.timezone'),
-		editorBaseUrl,
+		frontendUrl,
 		webhookBaseUrl: webhookBaseUrl + config.getEnv('endpoints.webhook'),
 		webhookWaitingBaseUrl: webhookBaseUrl + config.getEnv('endpoints.webhookWaiting'),
 		webhookTestBaseUrl: webhookBaseUrl + config.getEnv('endpoints.webhookTest'),

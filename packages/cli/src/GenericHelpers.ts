@@ -15,6 +15,7 @@ import type {
 import { validate } from 'class-validator';
 import { Container } from 'typedi';
 import { Like } from 'typeorm';
+import config from '@/config';
 import * as Db from '@/Db';
 import type { ICredentialsDb, IExecutionDb, IWorkflowDb } from '@/Interfaces';
 import * as ResponseHelper from '@/ResponseHelper';

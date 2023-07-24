@@ -32,7 +32,7 @@ import { getLogger } from '@/Logger';
 import type { OAuthRequest } from '@/requests';
 import { ExternalHooks } from '@/ExternalHooks';
 import config from '@/config';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
 export const oauth2CredentialController = express.Router();
 
@@ -120,7 +120,7 @@ oauth2CredentialController.get(
 		};
 		const stateEncodedStr = Buffer.from(JSON.stringify(state)).toString('base64');
 
-		const { oauth2CallbackUrl } = Container.get(URLService);
+		const { oauth2CallbackUrl } = Container.get(UrlService);
 		const scopes = get(oauthCredentials, 'scope', 'openid') as string;
 		const oAuthOptions: ClientOAuth2Options = {
 			clientId: get(oauthCredentials, 'clientId') as string,
@@ -255,7 +255,7 @@ oauth2CredentialController.get(
 
 			let options: Partial<ClientOAuth2Options> = {};
 
-			const { oauth2CallbackUrl } = Container.get(URLService);
+			const { oauth2CallbackUrl } = Container.get(UrlService);
 			const scopes = get(oauthCredentials, 'scope', 'openid') as string;
 			const oAuth2Parameters: ClientOAuth2Options = {
 				clientId: get(oauthCredentials, 'clientId') as string,

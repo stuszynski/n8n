@@ -476,13 +476,13 @@ export const schema = {
 		env: 'N8N_SSL_CERT',
 		doc: 'SSL Cert for HTTPS Protocol',
 	},
-	baseUrl: {
+	backendUrl: {
 		format: String,
 		default: '',
 		env: 'N8N_BASE_URL',
 		doc: 'Public URL where the n8n instance is available',
 	},
-	editorBaseUrl: {
+	frontendUrl: {
 		format: String,
 		default: '',
 		env: 'N8N_EDITOR_BASE_URL',

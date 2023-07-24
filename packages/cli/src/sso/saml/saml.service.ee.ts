@@ -26,7 +26,7 @@ import axios from 'axios';
 import https from 'https';
 import type { SamlLoginBinding } from './types';
 import { validateMetadata, validateResponse } from './samlValidator';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
 @Service()
 export class SamlService {
@@ -61,8 +61,8 @@ export class SamlService {
 		},
 	};
 
-	constructor(private readonly urlService: URLService) {
-		this._samlPreferences.relayState = urlService.editorBaseUrl;
+	constructor(private readonly urlService: UrlService) {
+		this._samlPreferences.relayState = urlService.frontendUrl;
 	}
 
 	public get samlPreferences(): SamlPreferences {
@@ -141,14 +141,14 @@ export class SamlService {
 
 	private getRedirectLoginRequestUrl(relayState?: string): BindingContext {
 		const sp = this.getServiceProviderInstance();
-		sp.entitySetting.relayState = relayState ?? this.urlService.editorBaseUrl;
+		sp.entitySetting.relayState = relayState ?? this.urlService.frontendUrl;
 		const loginRequest = sp.createLoginRequest(this.getIdentityProviderInstance(), 'redirect');
 		return loginRequest;
 	}
 
 	private getPostLoginRequestUrl(relayState?: string): PostBindingContext {
 		const sp = this.getServiceProviderInstance();
-		sp.entitySetting.relayState = relayState ?? this.urlService.editorBaseUrl;
+		sp.entitySetting.relayState = relayState ?? this.urlService.frontendUrl;
 		const loginRequest = sp.createLoginRequest(
 			this.getIdentityProviderInstance(),
 			'post',

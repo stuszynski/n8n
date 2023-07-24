@@ -2,19 +2,18 @@ import { Service } from 'typedi';
 import config from '@/config';
 
 @Service()
-export class URLService {
+export class UrlService {
 	private urls: {
-		base: string;
+		backend: string;
 		rest: string;
-		editor: string;
+		frontend: string;
 		webhook: string;
 		oauth1Callback: string;
 		oauth2Callback: string;
 	};
 
-	// TODO: do this and webhookBaseUrl need to be separate
-	get baseUrl() {
-		return this.urls.base;
+	get backendUrl() {
+		return this.urls.backend;
 	}
 
 	/** This is the base url for REST Api calls */
@@ -23,8 +22,8 @@ export class URLService {
 	}
 
 	/** This is the base url of the UI */
-	get editorBaseUrl() {
-		return this.urls.editor;
+	get frontendUrl() {
+		return this.urls.frontend;
 	}
 
 	/** This is the base url for webhooks */
@@ -44,46 +43,47 @@ export class URLService {
 		this.generateUrls();
 	}
 
-	updateBaseUrl(webhookUrl: string) {
-		config.set('baseUrl', webhookUrl);
+	updateBackendUrl(backendUrl: string) {
+		config.set('backendUrl', backendUrl);
 		this.generateUrls();
 	}
 
-	generateUserInviteUrl(inviterId: string, inviteeId: string): string {
-		return `${this.urls.editor}/signup?inviterId=${inviterId}&inviteeId=${inviteeId}`;
+	generateUserInviteUrl(inviterId: string, inviteeId: string) {
+		return `${this.urls.frontend}/signup?inviterId=${inviterId}&inviteeId=${inviteeId}`;
 	}
 
 	private generateUrls() {
-		const baseUrl = this.endsInSlash(config.getEnv('baseUrl') || this.generateBaseUrl());
-		const webhookBaseUrl = this.endsInSlash(config.getEnv('webhookBaseUrl') || baseUrl);
-		const editorBaseUrl = this.stripSlash(config.getEnv('editorBaseUrl') || baseUrl);
+		const baseUrl = this.appendSlash(config.getEnv('backendUrl') || this.generateBackendUrl());
+		const webhookUrl = this.appendSlash(config.getEnv('webhookBaseUrl') || baseUrl);
+
+		// TODO: all urls here should end in a slash
+		const frontendUrl = this.stripTrailingSlash(config.getEnv('frontendUrl') || baseUrl);
 		// TODO: should this use `webhookBaseUrl` ?
-		const restBaseUrl = this.stripSlash(`${baseUrl}${config.getEnv('endpoints.rest')}`);
+		const restBaseUrl = this.stripTrailingSlash(`${baseUrl}${config.getEnv('endpoints.rest')}`);
 
 		this.urls = {
-			base: baseUrl,
+			backend: baseUrl,
 			rest: restBaseUrl,
-			editor: editorBaseUrl,
-			webhook: webhookBaseUrl,
+			frontend: frontendUrl,
+			webhook: webhookUrl,
 			oauth1Callback: `${restBaseUrl}/oauth1-credential/callback`,
 			oauth2Callback: `${restBaseUrl}/oauth2-credential/callback`,
 		};
 	}
 
-	private endsInSlash(url: string) {
+	private appendSlash(url: string) {
 		return url.endsWith('/') ? url : `${url}/`;
 	}
 
-	private stripSlash(url: string) {
+	private stripTrailingSlash(url: string) {
 		return url.endsWith('/') ? url.slice(0, url.length - 1) : url;
 	}
 
-	private generateBaseUrl(): string {
+	private generateBackendUrl(): string {
 		const protocol = config.getEnv('protocol');
 		const host = config.getEnv('host');
 		const port = config.getEnv('port');
 		const path = config.getEnv('path');
-
 		if ((protocol === 'http' && port === 80) || (protocol === 'https' && port === 443)) {
 			return `${protocol}://${host}${path}`;
 		}

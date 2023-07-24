@@ -5,7 +5,7 @@ import Container from 'typedi';
 import type { IUserSettings } from 'n8n-workflow';
 import * as Db from '@/Db';
 import { User } from '@db/entities/User';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
 export class UserService {
 	static async get(where: FindOptionsWhere<User>): Promise<User | null> {
@@ -32,8 +32,8 @@ export class UserService {
 		const resetPasswordTokenExpiration = Math.floor(Date.now() / 1000) + 7200;
 		await Db.collections.User.update(id, { resetPasswordToken, resetPasswordTokenExpiration });
 
-		const { editorBaseUrl } = Container.get(URLService);
-		const url = new URL(`${editorBaseUrl}/change-password`);
+		const { frontendUrl } = Container.get(UrlService);
+		const url = new URL(`${frontendUrl}/change-password`);
 		url.searchParams.append('userId', id);
 		url.searchParams.append('token', resetPasswordToken);
 		return url.toString();

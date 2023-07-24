@@ -27,7 +27,7 @@ import { EDITOR_UI_DIST_DIR, GENERATED_STATIC_DIR } from '@/constants';
 import { eventBus } from '@/eventbus';
 import { BaseCommand } from './BaseCommand';
 import { InternalHooks } from '@/InternalHooks';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
 const open = require('open');
@@ -63,13 +63,13 @@ export class Start extends BaseCommand {
 
 	protected server = new Server();
 
-	private urlService = Container.get(URLService);
+	private urlService = Container.get(UrlService);
 
 	/**
 	 * Opens the UI in browser
 	 */
 	private openBrowser() {
-		const editorUrl = this.urlService.editorBaseUrl;
+		const editorUrl = this.urlService.frontendUrl;
 
 		open(editorUrl, { wait: true }).catch(() => {
 			console.log(
@@ -318,7 +318,7 @@ export class Start extends BaseCommand {
 				host: 'https://hooks.n8n.cloud',
 				subdomain: tunnelSubdomain,
 			});
-			this.urlService.updateBaseUrl(tunnel.url);
+			this.urlService.updateBackendUrl(tunnel.url);
 
 			this.log(`Tunnel URL: ${this.urlService.webhookBaseUrl}\n`);
 			this.log(
@@ -331,7 +331,7 @@ export class Start extends BaseCommand {
 		// Start to get active workflows and run their triggers
 		await this.activeWorkflowRunner.init();
 
-		const editorUrl = this.urlService.editorBaseUrl;
+		const editorUrl = this.urlService.frontendUrl;
 		this.log(`\nEditor is now accessible via:\n${editorUrl}`);
 
 		// Allow to open n8n editor by pressing "o"

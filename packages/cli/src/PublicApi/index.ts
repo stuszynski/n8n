@@ -15,7 +15,7 @@ import config from '@/config';
 import * as Db from '@/Db';
 import { InternalHooks } from '@/InternalHooks';
 import { License } from '@/License';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
 async function createApiRouter(
 	version: string,
@@ -27,10 +27,10 @@ async function createApiRouter(
 	const swaggerDocument = YAML.load(openApiSpecPath) as JsonObject;
 	// add the server depending on the config so the user can interact with the API
 	// from the Swagger UI
-	const { baseUrl } = Container.get(URLService);
+	const { backendUrl } = Container.get(UrlService);
 	swaggerDocument.server = [
 		{
-			url: `${baseUrl}/${publicApiEndpoint}/${version}}`,
+			url: `${backendUrl}/${publicApiEndpoint}/${version}}`,
 		},
 	];
 	const apiController = express.Router();

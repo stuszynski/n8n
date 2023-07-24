@@ -1,7 +1,7 @@
 import config from '@/config';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
-describe('URLService', () => {
+describe('UrlService', () => {
 	const defaultConfig = config.get();
 
 	beforeEach(() => {
@@ -18,8 +18,8 @@ describe('URLService', () => {
 		config.set('port', 1234);
 
 		assertURLs({
-			baseUrl: 'https://example.com:1234/',
-			editorBaseUrl: 'https://example.com:1234',
+			backendUrl: 'https://example.com:1234/',
+			frontendUrl: 'https://example.com:1234',
 			restBaseUrl: 'https://example.com:1234/rest',
 			webhookBaseUrl: 'https://example.com:1234/',
 			oauth1CallbackUrl: 'https://example.com:1234/rest/oauth1-credential/callback',
@@ -28,11 +28,11 @@ describe('URLService', () => {
 	});
 
 	test('when N8N_BASE_URL is set', () => {
-		config.set('baseUrl', 'https://custom.n8n/');
+		config.set('backendUrl', 'https://custom.n8n/');
 
 		assertURLs({
-			baseUrl: 'https://custom.n8n/',
-			editorBaseUrl: 'https://custom.n8n',
+			backendUrl: 'https://custom.n8n/',
+			frontendUrl: 'https://custom.n8n',
 			restBaseUrl: 'https://custom.n8n/rest',
 			webhookBaseUrl: 'https://custom.n8n/',
 			oauth1CallbackUrl: 'https://custom.n8n/rest/oauth1-credential/callback',
@@ -41,10 +41,10 @@ describe('URLService', () => {
 	});
 
 	test('when N8N_EDITOR_BASE_URL is set', () => {
-		config.set('editorBaseUrl', 'https://ui.example');
+		config.set('frontendUrl', 'https://ui.example');
 
 		assertURLs({
-			editorBaseUrl: 'https://ui.example',
+			frontendUrl: 'https://ui.example',
 		});
 	});
 
@@ -67,8 +67,8 @@ describe('URLService', () => {
 	});
 
 	interface AssertionData {
-		baseUrl: string;
-		editorBaseUrl: string;
+		backendUrl: string;
+		frontendUrl: string;
 		restBaseUrl: string;
 		webhookBaseUrl: string;
 		oauth1CallbackUrl: string;
@@ -76,8 +76,8 @@ describe('URLService', () => {
 	}
 
 	const defaults: AssertionData = {
-		baseUrl: 'http://localhost:5678/',
-		editorBaseUrl: 'http://localhost:5678',
+		backendUrl: 'http://localhost:5678/',
+		frontendUrl: 'http://localhost:5678',
 		restBaseUrl: 'http://localhost:5678/rest',
 		webhookBaseUrl: 'http://localhost:5678/',
 		oauth1CallbackUrl: 'http://localhost:5678/rest/oauth1-credential/callback',
@@ -85,10 +85,10 @@ describe('URLService', () => {
 	};
 
 	const assertURLs = (data: Partial<AssertionData> = {}) => {
-		const service = new URLService();
+		const service = new UrlService();
 		expect({
-			baseUrl: service.baseUrl,
-			editorBaseUrl: service.editorBaseUrl,
+			backendUrl: service.backendUrl,
+			frontendUrl: service.frontendUrl,
 			restBaseUrl: service.restBaseUrl,
 			webhookBaseUrl: service.webhookBaseUrl,
 			oauth1CallbackUrl: service.oauth1CallbackUrl,

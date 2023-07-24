@@ -26,12 +26,12 @@ import {
 import { getSamlConnectionTestSuccessView } from '../views/samlConnectionTestSuccess';
 import { getSamlConnectionTestFailedView } from '../views/samlConnectionTestFailed';
 import { InternalHooks } from '@/InternalHooks';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
 @Service()
 @RestController('/sso/saml')
 export class SamlController {
-	constructor(private readonly samlService: SamlService, private readonly urlService: URLService) {}
+	constructor(private readonly samlService: SamlService, private readonly urlService: UrlService) {}
 
 	@NoAuthRequired()
 	@Get(SamlUrls.metadata)
@@ -138,10 +138,10 @@ export class SamlController {
 				if (isSamlLicensedAndEnabled()) {
 					await issueCookie(res, loginResult.authenticatedUser);
 					if (loginResult.onboardingRequired) {
-						return res.redirect(this.urlService.editorBaseUrl + SamlUrls.samlOnboarding);
+						return res.redirect(this.urlService.frontendUrl + SamlUrls.samlOnboarding);
 					} else {
 						const redirectUrl = req.body?.RelayState ?? SamlUrls.defaultRedirect;
-						return res.redirect(this.urlService.editorBaseUrl + redirectUrl);
+						return res.redirect(this.urlService.frontendUrl + redirectUrl);
 					}
 				} else {
 					return res.status(202).send(loginResult.attributes);

@@ -46,7 +46,7 @@ import { plainToInstance } from 'class-transformer';
 import { License } from '@/License';
 import { Container } from 'typedi';
 import { RESPONSE_ERROR_MESSAGES } from '@/constants';
-import type { URLService } from '@/services/url.service';
+import type { UrlService } from '@/services/url.service';
 
 @Authorized(['global', 'owner'])
 @RestController('/users')
@@ -71,7 +71,7 @@ export class UsersController {
 
 	private mailer: UserManagementMailer;
 
-	private urlService: URLService;
+	private urlService: UrlService;
 
 	private postHog?: PostHogClient;
 
@@ -96,7 +96,7 @@ export class UsersController {
 		>;
 		activeWorkflowRunner: ActiveWorkflowRunner;
 		mailer: UserManagementMailer;
-		urlService: URLService;
+		urlService: UrlService;
 		postHog?: PostHogClient;
 	}) {
 		this.config = config;

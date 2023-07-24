@@ -4,7 +4,7 @@ import Handlebars from 'handlebars';
 import { join as pathJoin } from 'path';
 import { Service } from 'typedi';
 import config from '@/config';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 import type { InviteEmailData, PasswordResetData, SendEmailResult } from './Interfaces';
 import { NodeMailer } from './NodeMailer';
 
@@ -37,7 +37,7 @@ async function getTemplate(
 export class UserManagementMailer {
 	private mailer: NodeMailer | undefined;
 
-	constructor(private readonly urlService: URLService) {
+	constructor(private readonly urlService: UrlService) {
 		// Other implementations can be used in the future.
 		if (
 			config.getEnv('userManagement.emails.mode') === 'smtp' &&
@@ -60,7 +60,7 @@ export class UserManagementMailer {
 			subject: 'You have been invited to n8n',
 			body: template({
 				...inviteEmailData,
-				domain: this.urlService.editorBaseUrl,
+				domain: this.urlService.frontendUrl,
 			}),
 		});
 
@@ -76,7 +76,7 @@ export class UserManagementMailer {
 			subject: 'n8n password reset',
 			body: template({
 				...passwordResetData,
-				domain: this.urlService.editorBaseUrl,
+				domain: this.urlService.frontendUrl,
 			}),
 		});
 

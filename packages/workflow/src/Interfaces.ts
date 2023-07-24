@@ -731,7 +731,7 @@ export interface FunctionsBase {
 	getWorkflowStaticData(type: string): IDataObject;
 	getTimezone(): string;
 	getRestApiUrl(): string;
-	getEditorBaseUrl(): string;
+	getFrontendUrl(): string;
 
 	getMode?: () => WorkflowExecuteMode;
 	getActivationMode?: () => WorkflowActivateMode;
@@ -1741,7 +1741,7 @@ export interface IWorkflowExecuteAdditionalData {
 	httpResponse?: express.Response;
 	httpRequest?: express.Request;
 	restApiUrl: string;
-	editorBaseUrl: string;
+	frontendUrl: string;
 	setExecutionStatus?: (status: ExecutionStatus) => void;
 	sendMessageToUI?: (source: string, message: any) => void;
 	timezone: string;
@@ -2098,8 +2098,8 @@ export interface IN8nUISettings {
 		oauth2: string;
 	};
 	timezone: string;
-	urlBaseWebhook: string;
-	urlBaseEditor: string;
+	webhookBaseUrl: string;
+	frontendUrl: string;
 	versionCli: string;
 	n8nMetadata?: {
 		[key: string]: string | number | undefined;

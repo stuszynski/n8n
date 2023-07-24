@@ -160,7 +160,7 @@ import { SourceControlService } from '@/environments/sourceControl/sourceControl
 import { SourceControlController } from '@/environments/sourceControl/sourceControl.controller.ee';
 import { ExecutionRepository } from '@db/repositories';
 import type { ExecutionEntity } from '@db/entities/ExecutionEntity';
-import { URLService } from '@/services/url.service';
+import { UrlService } from '@/services/url.service';
 
 const exec = promisify(callbackExec);
 
@@ -185,7 +185,7 @@ export class Server extends AbstractServer {
 
 	push: Push;
 
-	urlService = Container.get(URLService);
+	urlService = Container.get(UrlService);
 
 	constructor() {
 		super();
@@ -220,8 +220,8 @@ export class Server extends AbstractServer {
 			maxExecutionTimeout: config.getEnv('executions.maxTimeout'),
 			workflowCallerPolicyDefaultOption: config.getEnv('workflows.callerPolicyDefaultOption'),
 			timezone: this.timezone,
-			urlBaseWebhook: '',
-			urlBaseEditor: '',
+			webhookBaseUrl: '',
+			frontendUrl: '',
 			versionCli: '',
 			oauthCallbackUrls: {
 				oauth1: '',
@@ -390,9 +390,9 @@ export class Server extends AbstractServer {
 	 * Returns the current settings for the frontend
 	 */
 	getSettingsForFrontend(): IN8nUISettings {
-		const { editorBaseUrl, webhookBaseUrl } = this.urlService;
-		this.frontendSettings.urlBaseEditor = editorBaseUrl;
-		this.frontendSettings.urlBaseWebhook = webhookBaseUrl;
+		const { frontendUrl, webhookBaseUrl } = this.urlService;
+		this.frontendSettings.frontendUrl = frontendUrl;
+		this.frontendSettings.webhookBaseUrl = webhookBaseUrl;
 		this.frontendSettings.oauthCallbackUrls = {
 			oauth1: this.urlService.oauth1CallbackUrl,
 			oauth2: this.urlService.oauth2CallbackUrl,
