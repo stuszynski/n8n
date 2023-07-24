@@ -1,11 +1,8 @@
 import type { EntityManager, FindOptionsWhere } from 'typeorm';
 import { In } from 'typeorm';
-import { v4 as uuid } from 'uuid';
-import Container from 'typedi';
 import type { IUserSettings } from 'n8n-workflow';
 import * as Db from '@/Db';
 import { User } from '@db/entities/User';
-import { UrlService } from '@/services/url.service';
 
 export class UserService {
 	static async get(where: FindOptionsWhere<User>): Promise<User | null> {
@@ -24,18 +21,5 @@ export class UserService {
 			where: { id },
 		});
 		return Db.collections.User.update(id, { settings: { ...currentSettings, ...userSettings } });
-	}
-
-	static async generatePasswordResetUrl(user: User): Promise<string> {
-		user.resetPasswordToken = uuid();
-		const { id, resetPasswordToken } = user;
-		const resetPasswordTokenExpiration = Math.floor(Date.now() / 1000) + 7200;
-		await Db.collections.User.update(id, { resetPasswordToken, resetPasswordTokenExpiration });
-
-		const { frontendUrl } = Container.get(UrlService);
-		const url = new URL(`${frontendUrl}/change-password`);
-		url.searchParams.append('userId', id);
-		url.searchParams.append('token', resetPasswordToken);
-		return url.toString();
 	}
 }

@@ -49,7 +49,16 @@ export class UrlService {
 	}
 
 	generateUserInviteUrl(inviterId: string, inviteeId: string) {
-		return `${this.urls.frontend}/signup?inviterId=${inviterId}&inviteeId=${inviteeId}`;
+		const url = new URL(`${this.urls.frontend}/signup`);
+		url.searchParams.append('inviterId', inviterId);
+		url.searchParams.append('inviteeId', inviteeId);
+		return url.toString();
+	}
+
+	generatePasswordResetUrl(token: string): string {
+		const url = new URL(`${this.urls.frontend}/change-password`);
+		url.searchParams.append('token', token);
+		return url.toString();
 	}
 
 	private generateUrls() {

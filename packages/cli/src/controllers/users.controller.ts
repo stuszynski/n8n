@@ -46,6 +46,7 @@ import { plainToInstance } from 'class-transformer';
 import { License } from '@/License';
 import { Container } from 'typedi';
 import { RESPONSE_ERROR_MESSAGES } from '@/constants';
+import type { JwtService } from '@/services/jwt.service';
 import type { UrlService } from '@/services/url.service';
 
 @Authorized(['global', 'owner'])
@@ -71,6 +72,8 @@ export class UsersController {
 
 	private mailer: UserManagementMailer;
 
+	private jwtService: JwtService;
+
 	private urlService: UrlService;
 
 	private postHog?: PostHogClient;
@@ -83,6 +86,7 @@ export class UsersController {
 		repositories,
 		activeWorkflowRunner,
 		mailer,
+		jwtService,
 		urlService,
 		postHog,
 	}: {
@@ -96,6 +100,7 @@ export class UsersController {
 		>;
 		activeWorkflowRunner: ActiveWorkflowRunner;
 		mailer: UserManagementMailer;
+		jwtService: JwtService;
 		urlService: UrlService;
 		postHog?: PostHogClient;
 	}) {
@@ -109,6 +114,7 @@ export class UsersController {
 		this.sharedWorkflowRepository = repositories.SharedWorkflow;
 		this.activeWorkflowRunner = activeWorkflowRunner;
 		this.mailer = mailer;
+		this.jwtService = jwtService;
 		this.urlService = urlService;
 		this.postHog = postHog;
 	}
@@ -382,10 +388,15 @@ export class UsersController {
 		if (!user) {
 			throw new NotFoundError('User not found');
 		}
-		const link = await UserService.generatePasswordResetUrl(user);
-		return {
-			link,
-		};
+
+		const resetPasswordToken = this.jwtService.signData(
+			{ sub: user.id },
+			{
+				expiresIn: '1d',
+			},
+		);
+
+		return { link: this.urlService.generatePasswordResetUrl(resetPasswordToken) };
 	}
 
 	@Authorized(['global', 'owner'])
