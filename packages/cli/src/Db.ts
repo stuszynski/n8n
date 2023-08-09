@@ -94,12 +94,7 @@ export function getConnectionOptions(dbType: DatabaseType): ConnectionOptions {
 				const sslKey = config.getEnv('database.postgresdb.ssl.key');
 				const sslRejectUnauthorized = config.getEnv('database.postgresdb.ssl.rejectUnauthorized');
 
-				if (
-					sslCa !== '' ||
-					sslCert !== '' ||
-					sslKey !== '' ||
-					sslRejectUnauthorized !== undefined
-				) {
+				if (sslCa !== '' || sslCert !== '' || sslKey !== '' || !sslRejectUnauthorized) {
 					ssl = {
 						ca: sslCa || undefined,
 						cert: sslCert || undefined,
