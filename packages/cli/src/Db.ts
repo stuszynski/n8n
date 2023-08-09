@@ -85,19 +85,28 @@ export async function transaction<T>(fn: (entityManager: EntityManager) => Promi
 export function getConnectionOptions(dbType: DatabaseType): ConnectionOptions {
 	switch (dbType) {
 		case 'postgresdb':
-			const sslCa = config.getEnv('database.postgresdb.ssl.ca');
-			const sslCert = config.getEnv('database.postgresdb.ssl.cert');
-			const sslKey = config.getEnv('database.postgresdb.ssl.key');
-			const sslRejectUnauthorized = config.getEnv('database.postgresdb.ssl.rejectUnauthorized');
+			let ssl: TlsOptions | boolean | undefined;
+			if (config.getEnv('database.postgresdb.sslEnabled')) {
+				ssl = true;
+			} else {
+				const sslCa = config.getEnv('database.postgresdb.ssl.ca');
+				const sslCert = config.getEnv('database.postgresdb.ssl.cert');
+				const sslKey = config.getEnv('database.postgresdb.ssl.key');
+				const sslRejectUnauthorized = config.getEnv('database.postgresdb.ssl.rejectUnauthorized');
 
-			let ssl: TlsOptions | undefined;
-			if (sslCa !== '' || sslCert !== '' || sslKey !== '' || !sslRejectUnauthorized) {
-				ssl = {
-					ca: sslCa || undefined,
-					cert: sslCert || undefined,
-					key: sslKey || undefined,
-					rejectUnauthorized: sslRejectUnauthorized,
-				};
+				if (
+					sslCa !== '' ||
+					sslCert !== '' ||
+					sslKey !== '' ||
+					sslRejectUnauthorized !== undefined
+				) {
+					ssl = {
+						ca: sslCa || undefined,
+						cert: sslCert || undefined,
+						key: sslKey || undefined,
+						rejectUnauthorized: sslRejectUnauthorized,
+					};
+				}
 			}
 
 			return {

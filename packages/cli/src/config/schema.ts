@@ -124,6 +124,12 @@ export const schema = {
 					env: 'DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED',
 				},
 			},
+			sslEnabled: {
+				doc: 'If SSL should be enabled with default certificates. This overwrites the custom `ssl` section above.',
+				format: 'Boolean',
+				default: false,
+				env: 'DB_POSTGRESDB_SSL_ENABLED',
+			},
 		},
 		mysqldb: {
 			database: {
