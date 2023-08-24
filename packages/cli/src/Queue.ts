@@ -1,6 +1,6 @@
 import type Bull from 'bull';
 import { Service } from 'typedi';
-import { type IExecuteResponsePromiseData } from 'n8n-workflow';
+import type { IRunExecutionData, IExecuteResponsePromiseData } from 'n8n-workflow';
 import { ActiveExecutions } from '@/ActiveExecutions';
 import * as WebhookHelpers from '@/WebhookHelpers';
 import {
@@ -23,6 +23,7 @@ export interface JobData {
 
 export interface JobResponse {
 	success: boolean;
+	resultData?: IRunExecutionData['resultData'];
 }
 
 export interface WebhookResponse {
