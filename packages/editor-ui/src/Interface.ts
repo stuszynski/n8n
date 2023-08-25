@@ -1,5 +1,3 @@
-import type { CREDENTIAL_EDIT_MODAL_KEY } from './constants';
-
 import type { IMenuItem } from 'n8n-design-system';
 import type {
 	GenericValue,
@@ -36,11 +34,12 @@ import type {
 	IN8nUISettings,
 	BannerName,
 } from 'n8n-workflow';
-import type { SignInType } from './constants';
 import type {
+	SignInType,
 	FAKE_DOOR_FEATURES,
 	TRIGGER_NODE_CREATOR_VIEW,
 	REGULAR_NODE_CREATOR_VIEW,
+	CREDENTIAL_EDIT_MODAL_KEY,
 } from './constants';
 import type { BulkCommand, Undoable } from '@/models/history';
 import type { PartialBy } from '@/utils/typeHelpers';

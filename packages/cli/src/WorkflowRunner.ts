@@ -53,6 +53,7 @@ import { recoverExecutionDataFromEventLogMessages } from './eventbus/MessageEven
 import { Container } from 'typedi';
 import { InternalHooks } from './InternalHooks';
 import { ExecutionRepository } from '@db/repositories';
+import type { JobOptions } from 'bull';
 
 export class WorkflowRunner {
 	activeExecutions: ActiveExecutions;
@@ -433,6 +434,9 @@ export class WorkflowRunner {
 			loadStaticData: !!loadStaticData,
 		};
 
+		// TODO: determine whether return is needed (for e.g. webhook response)
+		jobData.returnResultData = true;
+
 		let priority = 100;
 		if (realtime === true) {
 			// Jobs which require a direct response get a higher priority
@@ -440,7 +444,7 @@ export class WorkflowRunner {
 		}
 		// TODO: For realtime jobs should probably also not do retry or not retry if they are older than x seconds.
 		//       Check if they get retried by default and how often.
-		const jobOptions = {
+		const jobOptions: JobOptions = {
 			priority,
 			removeOnComplete: true,
 			removeOnFail: true,

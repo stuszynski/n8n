@@ -95,7 +95,7 @@ export class Worker extends BaseCommand {
 	}
 
 	async runJob(job: Job, nodeTypes: INodeTypes): Promise<JobResponse> {
-		const { executionId, loadStaticData } = job.data;
+		const { executionId, loadStaticData, returnResultData } = job.data;
 		const fullExecutionData = await Container.get(ExecutionRepository).findSingleExecution(
 			executionId,
 			{
@@ -227,7 +227,7 @@ export class Worker extends BaseCommand {
 
 		return {
 			success: true,
-			resultData: result.data.resultData,
+			resultData: returnResultData ? result.data.resultData : undefined,
 		};
 	}
 
