@@ -67,6 +67,8 @@ import { ExecutionRepository } from '@db/repositories';
 import { EventsService } from '@/services/events.service';
 import { SecretsHelper } from './SecretsHelpers';
 import { OwnershipService } from './services/ownership.service';
+import { RedisServicePubSubPublisher } from './services/redis/RedisServicePubSubPublisher';
+import { EventMessageWorkflow } from './eventbus/EventMessageClasses/EventMessageWorkflow';
 
 const ERROR_TRIGGER_TYPE = config.getEnv('nodes.errorTriggerType');
 
@@ -787,6 +789,7 @@ function hookFunctionsSaveWorker(): IWorkflowExecuteHooks {
 						fullExecutionData.workflowId = workflowId;
 					}
 
+					console.log('WORKER? workflowExecuteAfter');
 					await Container.get(ExecutionRepository).updateExistingExecution(
 						this.executionId,
 						fullExecutionData,
@@ -812,7 +815,42 @@ function hookFunctionsSaveWorker(): IWorkflowExecuteHooks {
 							retrySuccessId: this.executionId,
 						});
 					}
+					await Container.get(RedisServicePubSubPublisher).publishToEventLog(
+						new EventMessageWorkflow({
+							eventName: 'n8n.workflow.success',
+							payload: {
+								executionId: this.executionId,
+								success: fullRunData.status,
+								workflowId: this.workflowData.id,
+								isManual: false, // currently manual executions are not supported on queues
+								workflowName: this.workflowData.name,
+								metaData: fullRunData?.data?.resultData?.metadata,
+							},
+						}),
+					);
+					// this.telemetry.trackWorkflowExecution(properties);
 				} catch (error) {
+					const errorNode =
+						fullRunData?.data?.resultData?.error && 'node' in fullRunData.data.resultData.error
+							? fullRunData?.data.resultData.error.node
+							: undefined;
+					await Container.get(RedisServicePubSubPublisher).publishToEventLog(
+						new EventMessageWorkflow({
+							eventName: 'n8n.workflow.failed',
+							payload: {
+								executionId: this.executionId,
+								success: fullRunData.status,
+								workflowId: this.workflowData.id,
+								lastNodeExecuted: fullRunData?.data?.resultData?.lastNodeExecuted,
+								errorNodeType: errorNode?.type,
+								errorNodeId: errorNode?.id?.toString(),
+								errorMessage: fullRunData?.data?.resultData?.error?.message,
+								isManual: false, // currently manual executions are not supported on queues
+								workflowName: this.workflowData.name,
+								metaData: fullRunData?.data?.resultData?.metadata,
+							},
+						}),
+					);
 					executeErrorWorkflow(
 						this.workflowData,
 						fullRunData,
