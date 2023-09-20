@@ -11,14 +11,12 @@ const TEMP_NODE_NAME = 'Temp-Node';
 const TEMP_WORKFLOW_NAME = 'Temp-Workflow';
 
 export abstract class LoadNodeDetails {
-	path: string;
-
 	workflow: Workflow;
 
 	constructor(
 		nodeTypeNameAndVersion: INodeTypeNameVersion,
 		nodeTypes: INodeTypes,
-		path: string,
+		protected path: string,
 		currentNodeParameters: INodeParameters,
 		credentials?: INodeCredentials,
 	) {
@@ -26,8 +24,6 @@ export abstract class LoadNodeDetails {
 			nodeTypeNameAndVersion.name,
 			nodeTypeNameAndVersion.version,
 		);
-
-		this.path = path;
 
 		if (nodeType === undefined) {
 			throw new Error(
@@ -48,14 +44,9 @@ export abstract class LoadNodeDetails {
 			nodeData.credentials = credentials;
 		}
 
-		const workflowData = {
+		this.workflow = new Workflow({
 			nodes: [nodeData],
 			connections: {},
-		};
-
-		this.workflow = new Workflow({
-			nodes: workflowData.nodes,
-			connections: workflowData.connections,
 			active: false,
 			nodeTypes,
 		});

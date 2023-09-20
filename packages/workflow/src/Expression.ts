@@ -23,6 +23,7 @@ import { extend, extendOptional } from './Extensions';
 import { extendedFunctions } from './Extensions/ExtendedFunctions';
 import { extendSyntax } from './Extensions/ExpressionExtension';
 import { evaluateExpression, setErrorHandler } from './ExpressionEvaluatorProxy';
+import { getGlobalState } from './GlobalState';
 
 const IS_FRONTEND_IN_DEV_MODE =
 	typeof process === 'object' &&
@@ -32,13 +33,13 @@ const IS_FRONTEND_IN_DEV_MODE =
 
 const IS_FRONTEND = typeof process === 'undefined' || IS_FRONTEND_IN_DEV_MODE;
 
-export const isSyntaxError = (error: unknown): error is SyntaxError =>
+const isSyntaxError = (error: unknown): error is SyntaxError =>
 	error instanceof SyntaxError || (error instanceof Error && error.name === 'SyntaxError');
 
-export const isExpressionError = (error: unknown): error is ExpressionError =>
+const isExpressionError = (error: unknown): error is ExpressionError =>
 	error instanceof ExpressionError || error instanceof ExpressionExtensionError;
 
-export const isTypeError = (error: unknown): error is TypeError =>
+const isTypeError = (error: unknown): error is TypeError =>
 	error instanceof TypeError || (error instanceof Error && error.name === 'TypeError');
 
 // Make sure that error get forwarded
@@ -59,11 +60,7 @@ const fnConstructors = {
 };
 
 export class Expression {
-	workflow: Workflow;
-
-	constructor(workflow: Workflow) {
-		this.workflow = workflow;
-	}
+	constructor(private readonly workflow: Workflow) {}
 
 	static resolveWithoutWorkflow(expression: string, data: IDataObject = {}) {
 		return tmpl.tmpl(expression, data);
@@ -85,7 +82,7 @@ export class Expression {
 		if (value instanceof Date) {
 			// We don't want to use JSON.stringify for dates since it disregards workflow timezone
 			result = DateTime.fromJSDate(value, {
-				zone: this.workflow.settings?.timezone ?? 'default',
+				zone: this.workflow.settings?.timezone ?? getGlobalState().defaultTimezone,
 			}).toISO();
 		} else {
 			result = JSON.stringify(value);
@@ -114,7 +111,6 @@ export class Expression {
 		activeNodeName: string,
 		connectionInputData: INodeExecutionData[],
 		mode: WorkflowExecuteMode,
-		timezone: string,
 		additionalKeys: IWorkflowDataProxyAdditionalKeys,
 		executeData?: IExecuteData,
 		returnObjectAsString = false,
@@ -142,7 +138,6 @@ export class Expression {
 			connectionInputData,
 			siblingParameters,
 			mode,
-			timezone,
 			additionalKeys,
 			executeData,
 			-1,
@@ -369,7 +364,6 @@ export class Expression {
 		node: INode,
 		parameterValue: string | boolean | undefined,
 		mode: WorkflowExecuteMode,
-		timezone: string,
 		additionalKeys: IWorkflowDataProxyAdditionalKeys,
 		executeData?: IExecuteData,
 		defaultValue?: boolean | number | string | unknown[],
@@ -397,7 +391,6 @@ export class Expression {
 			node.name,
 			connectionInputData,
 			mode,
-			timezone,
 			additionalKeys,
 			executeData,
 		) as boolean | number | string | undefined;
@@ -413,7 +406,6 @@ export class Expression {
 		node: INode,
 		parameterValue: NodeParameterValue | INodeParameters | NodeParameterValue[] | INodeParameters[],
 		mode: WorkflowExecuteMode,
-		timezone: string,
 		additionalKeys: IWorkflowDataProxyAdditionalKeys,
 		executeData?: IExecuteData,
 		defaultValue: NodeParameterValueType | undefined = undefined,
@@ -443,7 +435,6 @@ export class Expression {
 			node.name,
 			connectionInputData,
 			mode,
-			timezone,
 			additionalKeys,
 			executeData,
 			false,
@@ -459,7 +450,6 @@ export class Expression {
 			node.name,
 			connectionInputData,
 			mode,
-			timezone,
 			additionalKeys,
 			executeData,
 			false,
@@ -484,7 +474,6 @@ export class Expression {
 		activeNodeName: string,
 		connectionInputData: INodeExecutionData[],
 		mode: WorkflowExecuteMode,
-		timezone: string,
 		additionalKeys: IWorkflowDataProxyAdditionalKeys,
 		executeData?: IExecuteData,
 		returnObjectAsString = false,
@@ -509,7 +498,6 @@ export class Expression {
 					activeNodeName,
 					connectionInputData,
 					mode,
-					timezone,
 					additionalKeys,
 					executeData,
 					returnObjectAsString,
@@ -526,7 +514,6 @@ export class Expression {
 				activeNodeName,
 				connectionInputData,
 				mode,
-				timezone,
 				additionalKeys,
 				executeData,
 				returnObjectAsString,
@@ -545,7 +532,6 @@ export class Expression {
 				activeNodeName,
 				connectionInputData,
 				mode,
-				timezone,
 				additionalKeys,
 				executeData,
 				returnObjectAsString,

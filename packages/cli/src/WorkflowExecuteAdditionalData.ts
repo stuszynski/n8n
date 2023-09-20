@@ -976,7 +976,6 @@ export function sendMessageToUI(source: string, messages: any[]) {
 
 /**
  * Returns the base additional data without webhooks
- *
  */
 export async function getBase(
 	userId: string,
@@ -985,7 +984,6 @@ export async function getBase(
 ): Promise<IWorkflowExecuteAdditionalData> {
 	const urlBaseWebhook = WebhookHelpers.getWebhookBaseUrl();
 
-	const timezone = config.getEnv('generic.timezone');
 	const webhookBaseUrl = urlBaseWebhook + config.getEnv('endpoints.webhook');
 	const webhookWaitingBaseUrl = urlBaseWebhook + config.getEnv('endpoints.webhookWaiting');
 	const webhookTestBaseUrl = urlBaseWebhook + config.getEnv('endpoints.webhookTest');
@@ -1000,7 +998,6 @@ export async function getBase(
 		encryptionKey,
 		executeWorkflow,
 		restApiUrl: urlBaseWebhook + config.getEnv('endpoints.rest'),
-		timezone,
 		instanceBaseUrl: urlBaseWebhook,
 		webhookBaseUrl,
 		webhookWaitingBaseUrl,
