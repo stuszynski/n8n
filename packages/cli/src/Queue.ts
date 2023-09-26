@@ -1,6 +1,10 @@
 import type Bull from 'bull';
 import { Service } from 'typedi';
 import type { ExecutionError, IExecuteResponsePromiseData } from 'n8n-workflow';
+import { EventEmitter } from 'events';
+
+import config from '@/config';
+import { Debounce } from '@/decorators/Debounce';
 import { ActiveExecutions } from '@/ActiveExecutions';
 import * as WebhookHelpers from '@/WebhookHelpers';
 import {
@@ -8,9 +12,8 @@ import {
 	getRedisClusterNodes,
 	getRedisPrefix,
 	getRedisStandardClient,
-} from './services/redis/RedisServiceHelper';
-import type { RedisClientType } from './services/redis/RedisServiceBaseClasses';
-import config from '@/config';
+} from '@/services/redis/RedisServiceHelper';
+import type { RedisClientType } from '@/services/redis/RedisServiceBaseClasses';
 
 export type JobId = Bull.JobId;
 export type Job = Bull.Job<JobData>;
@@ -32,10 +35,12 @@ export interface WebhookResponse {
 }
 
 @Service()
-export class Queue {
+export class Queue extends EventEmitter {
 	private jobQueue: JobQueue;
 
-	constructor(private activeExecutions: ActiveExecutions) {}
+	constructor(private activeExecutions: ActiveExecutions) {
+		super();
+	}
 
 	async init() {
 		const bullPrefix = config.getEnv('queue.bull.prefix');
@@ -59,16 +64,44 @@ export class Queue {
 					: getRedisStandardClient(Redis, clientConfig, (type + '(bull)') as RedisClientType),
 		});
 
-		this.jobQueue.on('global:progress', (jobId, progress: WebhookResponse) => {
-			this.activeExecutions.resolveResponsePromise(
-				progress.executionId,
-				WebhookHelpers.decodeWebhookResponse(progress.response),
-			);
-		});
+		const instanceType = config.getEnv('generic.instanceType');
+		if (instanceType === 'main') {
+			const updateJobCounts = () => this.updateJobCounts();
+			this.jobQueue.once('registered:global:progress', updateJobCounts);
+			this.jobQueue.on('global:progress', updateJobCounts);
+			this.jobQueue.on('global:failed', updateJobCounts);
+			this.jobQueue.on('global:completed', updateJobCounts);
+		} else {
+			this.jobQueue.on('global:progress', (jobId: JobId, progress) => {
+				if (instanceType === 'worker') {
+					// Progress of a job got updated which does get used to communicate that a job got canceled.
+					if (progress === -1) {
+						// Job has to get canceled
+						this.emit('job:cancelled', jobId);
+					}
+				} else {
+					const { executionId, response } = progress as WebhookResponse;
+					this.activeExecutions.resolveResponsePromise(
+						executionId,
+						WebhookHelpers.decodeWebhookResponse(response),
+					);
+				}
+			});
+		}
+
+		if (instanceType === 'worker') {
+			this.jobQueue.on('error', (error: Error) => this.emit('on:error', error));
+		}
+	}
+
+	async ping() {
+		await this.jobQueue.client.ping();
 	}
 
 	async add(jobData: JobData, jobOptions: object): Promise<Job> {
-		return this.jobQueue.add(jobData, jobOptions);
+		const job = await this.jobQueue.add(jobData, jobOptions);
+		this.updateJobCounts();
+		return job;
 	}
 
 	async getJob(jobId: JobId): Promise<Job | null> {
@@ -79,15 +112,14 @@ export class Queue {
 		return this.jobQueue.getJobs(jobTypes);
 	}
 
-	getBullObjectInstance(): JobQueue {
-		return this.jobQueue;
+	async pause() {
+		return this.jobQueue.pause(true);
 	}
 
-	/**
-	 *
-	 * @param job A Job instance
-	 * @returns boolean true if we were able to securely stop the job
-	 */
+	process(concurrency: number) {
+		void this.jobQueue.process(concurrency, (job: Job) => this.emit('on:job:start', job));
+	}
+
 	async stopJob(job: Job): Promise<boolean> {
 		if (await job.isActive()) {
 			// Job is already running so tell it to stop
@@ -97,6 +129,7 @@ export class Queue {
 		// Job did not get started yet so remove from queue
 		try {
 			await job.remove();
+			this.updateJobCounts();
 			return true;
 		} catch (e) {
 			await job.progress(-1);
@@ -104,4 +137,18 @@ export class Queue {
 
 		return false;
 	}
+
+	@Debounce(1000)
+	private updateJobCounts() {
+		void this.jobQueue.getJobCounts().then((jobCounts) => {
+			this.emit('update:jobCount', jobCounts);
+		});
+	}
+}
+
+export declare interface Queue {
+	on(event: 'on:error', listener: (error: Error) => void): this;
+	on(event: 'on:job:start', listener: (job: Job) => void): this;
+	on(event: 'on:job:cancelled', listener: (jobId: JobId) => void): this;
+	on(event: 'update:jobCount', listener: (jobCounts: Bull.JobCounts) => void): this;
 }
