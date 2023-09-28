@@ -2600,11 +2600,9 @@ const getBinaryHelperFunctions = (
 });
 
 /**
- * Returns of copy of the items which only contains the json data and
- * of that only the define properties
+ * Returns a copy of the items which only contains the json data and
+ * of that only the defined properties
  *
- * @param {INodeExecutionData[]} items The items to copy
- * @param {string[]} properties The properties it should include
  */
 function copyInputItems(items: INodeExecutionData[], properties: string[]): IDataObject[] {
 	// Prepare the data to insert and copy it to be returned
