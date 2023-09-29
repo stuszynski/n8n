@@ -49,16 +49,20 @@ export async function router(this: IExecuteFunctions): Promise<INodeExecutionDat
 					sheetName = await googleSheet.spreadsheetGetSheetNameById(sheetId);
 			}
 
-			operationResult.push(
-				...(await sheet[googleSheets.operation].execute.call(
-					this,
-					googleSheet,
-					sheetName,
-					sheetId,
-				)),
+			const results = await sheet[googleSheets.operation].execute.call(
+				this,
+				googleSheet,
+				sheetName,
+				sheetId,
 			);
+			while (results.length) {
+				operationResult.push(...results.splice(0, 100_000));
+			}
 		} else if (googleSheets.resource === 'spreadsheet') {
-			operationResult.push(...(await spreadsheet[googleSheets.operation].execute.call(this)));
+			const results = await spreadsheet[googleSheets.operation].execute.call(this);
+			while (results.length) {
+				operationResult.push(...results.splice(0, 100_000));
+			}
 		}
 	} catch (err) {
 		if (this.continueOnFail()) {
