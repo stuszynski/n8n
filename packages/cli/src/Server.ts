@@ -237,8 +237,8 @@ export class Server extends AbstractServer {
 		const instanceBaseUrl = getInstanceBaseUrl();
 
 		this.frontendSettings = {
-			endpointWebhook: this.endpointWebhook,
-			endpointWebhookTest: this.endpointWebhookTest,
+			endpointWebhook: config.getEnv('endpoints.webhook'),
+			endpointWebhookTest: config.getEnv('endpoints.webhookTest'),
 			saveDataErrorExecution: config.getEnv('executions.saveDataOnError'),
 			saveDataSuccessExecution: config.getEnv('executions.saveDataOnSuccess'),
 			saveManualExecutions: config.getEnv('executions.saveDataManualExecutions'),
@@ -881,7 +881,7 @@ export class Server extends AbstractServer {
 		this.app.get(
 			`/${this.restEndpoint}/active`,
 			ResponseHelper.send(async (req: WorkflowRequest.GetAllActive) => {
-				return this.activeWorkflowRunner.getActiveWorkflows(req.user);
+				return this.activeWorkflowRunner.getActiveWorkflowIds(req.user);
 			}),
 		);
 

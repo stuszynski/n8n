@@ -27,6 +27,8 @@ import { NodeTypes } from '@/NodeTypes';
 import { SecretsHelper } from '@/SecretsHelpers';
 import { WebhookService } from '@/services/webhook.service';
 import { VariablesService } from '../../src/environments/variables/variables.service';
+import { WorkflowRepository } from '@/databases/repositories';
+import { ActiveWebhooks } from '@/webhooks';
 
 /**
  * TODO:
@@ -132,7 +134,6 @@ jest
 	.mockImplementation(workflowCheckIfCanBeActivated);
 
 const removeFunction = jest.spyOn(ActiveWorkflowRunner.prototype, 'remove');
-const removeWebhooksFunction = jest.spyOn(ActiveWorkflowRunner.prototype, 'removeWorkflowWebhooks');
 const workflowRunnerRun = jest.spyOn(WorkflowRunner.prototype, 'run');
 const workflowExecuteAdditionalDataExecuteErrorWorkflowSpy = jest.spyOn(
 	WorkflowExecuteAdditionalData,
@@ -143,6 +144,27 @@ describe('ActiveWorkflowRunner', () => {
 	let externalHooks: ExternalHooks;
 	let activeWorkflowRunner: ActiveWorkflowRunner;
 	const webhookService = mockInstance(WebhookService);
+	const activeWebhooks = mockInstance(ActiveWebhooks);
+	const workflowRepository = mockInstance(WorkflowRepository, {
+		find: jest.fn(async () => generateWorkflows(databaseActiveWorkflowsCount)),
+		findOne: jest.fn(async (searchParams) => {
+			return (
+				databaseActiveWorkflowsList.find(
+					(workflow) => workflow.id === searchParams.where!.id.toString(),
+				) ?? null
+			);
+		}),
+		update: jest.fn(),
+		createQueryBuilder: jest.fn(() => {
+			const fakeQueryBuilder = {
+				update: () => fakeQueryBuilder,
+				set: () => fakeQueryBuilder,
+				where: () => fakeQueryBuilder,
+				execute: async () => {},
+			};
+			return fakeQueryBuilder;
+		}),
+	});
 
 	beforeAll(async () => {
 		LoggerProxy.init(getLogger());
@@ -167,9 +189,11 @@ describe('ActiveWorkflowRunner', () => {
 		externalHooks = mock();
 		activeWorkflowRunner = new ActiveWorkflowRunner(
 			new ActiveExecutions(),
+			activeWebhooks,
 			externalHooks,
 			Container.get(NodeTypes),
 			webhookService,
+			workflowRepository,
 		);
 	});
 
@@ -182,7 +206,7 @@ describe('ActiveWorkflowRunner', () => {
 
 	test('Should initialize activeWorkflowRunner with empty list of active workflows and call External Hooks', async () => {
 		await activeWorkflowRunner.init();
-		expect(await activeWorkflowRunner.getActiveWorkflows()).toHaveLength(0);
+		expect(await workflowRepository.getActiveWorkflowIds()).toHaveLength(0);
 		expect(mocked(Db.collections.Workflow.find)).toHaveBeenCalled();
 		expect(webhookService.deleteInstanceWebhooks).toHaveBeenCalled();
 		expect(externalHooks.run).toHaveBeenCalledTimes(1);
@@ -191,7 +215,7 @@ describe('ActiveWorkflowRunner', () => {
 	test('Should initialize activeWorkflowRunner with one active workflow', async () => {
 		databaseActiveWorkflowsCount = 1;
 		await activeWorkflowRunner.init();
-		expect(await activeWorkflowRunner.getActiveWorkflows()).toHaveLength(
+		expect(await workflowRepository.getActiveWorkflowIds()).toHaveLength(
 			databaseActiveWorkflowsCount,
 		);
 		expect(mocked(Db.collections.Workflow.find)).toHaveBeenCalled();
@@ -208,7 +232,7 @@ describe('ActiveWorkflowRunner', () => {
 	test('Call to removeAll should remove every workflow', async () => {
 		databaseActiveWorkflowsCount = 2;
 		await activeWorkflowRunner.init();
-		expect(await activeWorkflowRunner.getActiveWorkflows()).toHaveLength(
+		expect(await workflowRepository.getActiveWorkflowIds()).toHaveLength(
 			databaseActiveWorkflowsCount,
 		);
 		await activeWorkflowRunner.removeAll();
@@ -218,23 +242,23 @@ describe('ActiveWorkflowRunner', () => {
 	test('Call to remove should also call removeWorkflowWebhooks', async () => {
 		databaseActiveWorkflowsCount = 1;
 		await activeWorkflowRunner.init();
-		expect(await activeWorkflowRunner.getActiveWorkflows()).toHaveLength(
+		expect(await workflowRepository.getActiveWorkflowIds()).toHaveLength(
 			databaseActiveWorkflowsCount,
 		);
 		await activeWorkflowRunner.remove('1');
-		expect(removeWebhooksFunction).toHaveBeenCalledTimes(1);
+		expect(activeWebhooks.removeWorkflowWebhooks).toHaveBeenCalledTimes(1);
 	});
 
 	test('Call to isActive should return true for valid workflow', async () => {
 		databaseActiveWorkflowsCount = 1;
 		await activeWorkflowRunner.init();
-		expect(await activeWorkflowRunner.isActive('1')).toBe(true);
+		expect(await workflowRepository.isActive('1')).toBe(true);
 	});
 
 	test('Call to isActive should return false for invalid workflow', async () => {
 		databaseActiveWorkflowsCount = 1;
 		await activeWorkflowRunner.init();
-		expect(await activeWorkflowRunner.isActive('2')).toBe(false);
+		expect(await workflowRepository.isActive('2')).toBe(false);
 	});
 
 	test('Calling add should call checkIfWorkflowCanBeActivated', async () => {
@@ -248,7 +272,7 @@ describe('ActiveWorkflowRunner', () => {
 	test('runWorkflow should call run method in WorkflowRunner', async () => {
 		await activeWorkflowRunner.init();
 		const workflow = generateWorkflows(1);
-		const additionalData = await WorkflowExecuteAdditionalData.getBase('fake-user-id');
+		const additionalData = await WorkflowExecuteAdditionalData.getBase();
 
 		workflowRunnerRun.mockResolvedValueOnce('invalid-execution-id');
 
