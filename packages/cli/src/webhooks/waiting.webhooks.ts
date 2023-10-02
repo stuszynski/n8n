@@ -12,13 +12,13 @@ import { OwnershipService } from '@/services/ownership.service';
 
 import { AbstractWebhooks } from './abstract.webhooks';
 import type {
-	RegisteredActiveWebhook,
+	RegisteredWaitingWebhook,
 	WaitingWebhookRequest,
 	WebhookResponseCallbackData,
 } from './types';
 
 @Service()
-export class WaitingWebhooks extends AbstractWebhooks {
+export class WaitingWebhooks extends AbstractWebhooks<RegisteredWaitingWebhook> {
 	override supportsDynamicPath = false;
 
 	constructor(
@@ -36,7 +36,7 @@ export class WaitingWebhooks extends AbstractWebhooks {
 	}
 
 	async executeWebhook(
-		webhook: RegisteredActiveWebhook,
+		webhook: RegisteredWaitingWebhook,
 		req: WaitingWebhookRequest,
 		res: Response,
 	): Promise<WebhookResponseCallbackData> {
@@ -98,10 +98,10 @@ export class WaitingWebhooks extends AbstractWebhooks {
 
 		const additionalData = await WorkflowExecuteAdditionalData.getBase(workflowOwner.id);
 		const webhookData = NodeHelpers.getNodeWebhooks(workflow, startNode, additionalData).find(
-			(webhook) =>
-				webhook.httpMethod === req.method &&
-				webhook.path === (suffix ?? '') &&
-				webhook.webhookDescription.restartWebhook === true,
+			(w) =>
+				w.httpMethod === req.method &&
+				w.path === (suffix ?? '') &&
+				w.webhookDescription.restartWebhook === true,
 		);
 
 		if (webhookData === undefined) {
@@ -114,13 +114,11 @@ export class WaitingWebhooks extends AbstractWebhooks {
 		const runExecutionData = execution.data;
 
 		return new Promise((resolve, reject) => {
-			const executionMode = 'webhook';
 			void this.startWebhookExecution(
 				workflow,
-				webhookData,
+				webhookData.webhookDescription,
 				workflowData as IWorkflowDb,
 				startNode,
-				executionMode,
 				undefined,
 				runExecutionData,
 				execution.id,

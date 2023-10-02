@@ -21,6 +21,7 @@ import type {
 	INode,
 	IRunExecutionData,
 	IWebhookData,
+	IWebhookDescription,
 	IWebhookResponseData,
 	IWorkflowDataProxyAdditionalKeys,
 	IWorkflowExecuteAdditionalData,
@@ -61,12 +62,11 @@ import { OwnershipService } from '@/services/ownership.service';
 import { WorkflowsService } from '@/workflows/workflows.services';
 
 import type {
-	RegisteredActiveWebhook,
+	RegisteredWebhook,
 	WebhookCORSRequest,
 	WebhookRequest,
 	WebhookResponseCallbackData,
 } from './types';
-import { WebhookEntity } from '@/databases/entities/WebhookEntity';
 
 const UUID_REGEXP =
 	/^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/;
@@ -80,30 +80,28 @@ const WEBHOOK_METHODS = new Set<IHttpRequestMethods>([
 	'PUT',
 ]);
 
-export abstract class AbstractWebhooks {
+export abstract class AbstractWebhooks<T extends RegisteredWebhook> {
 	protected supportsDynamicPath = true;
 
-	private registered = new Map<string, Map<IHttpRequestMethods, RegisteredActiveWebhook>>();
+	protected executionMode: WorkflowExecuteMode = 'webhook';
+
+	protected workflows: Map<string, IWorkflowDb> = new Map();
+
+	private registered = new Map<string, Map<IHttpRequestMethods, T>>();
 
 	constructor(protected readonly nodeTypes: INodeTypes) {}
 
 	abstract registerHandler(app: Application): void;
 
 	abstract executeWebhook(
-		webhook: RegisteredActiveWebhook,
+		webhook: T,
 		req: WebhookRequest,
 		res: Response,
 	): Promise<WebhookResponseCallbackData>;
 
-	protected registerWebhook(webhook: WebhookEntity) {
-		const pathOrId = webhook.isDynamic ? webhook.webhookId! : webhook.webhookPath;
+	protected registerWebhook(pathOrId: string, method: IHttpRequestMethods, data: T) {
 		const webhookGroup = this.registered.get(pathOrId) ?? new Map();
-		webhookGroup.set(webhook.method, {
-			isDynamic: webhook.isDynamic,
-			webhookPath: webhook.webhookPath,
-			workflowId: webhook.workflowId,
-			nodeName: webhook.node,
-		});
+		webhookGroup.set(method, data);
 		this.registered.set(pathOrId, webhookGroup);
 		// TODO: update these on redis, and publish a message for others to pull the cache
 	}
@@ -147,10 +145,9 @@ export abstract class AbstractWebhooks {
 
 	protected async startWebhookExecution(
 		workflow: Workflow,
-		webhookData: IWebhookData,
+		webhookDescription: IWebhookDescription,
 		workflowData: IWorkflowDb,
-		node: INode,
-		executionMode: WorkflowExecuteMode,
+		startNode: INode,
 		sessionId: string | undefined,
 		runExecutionData: IRunExecutionData | undefined,
 		executionId: string | undefined,
@@ -159,12 +156,18 @@ export abstract class AbstractWebhooks {
 		responseCallback: (error: Error | null, data: WebhookResponseCallbackData) => void,
 		destinationNode?: string,
 	): Promise<string | undefined> {
-		const nodeType = this.nodeTypes.getByNameAndVersion(node.type, node.typeVersion);
+		const nodeType = this.nodeTypes.getByNameAndVersion(startNode.type, startNode.typeVersion);
 		if (nodeType === undefined) {
-			throw new InternalServerError(`The type of the webhook node "${node.name}" is not known`);
+			throw new InternalServerError(
+				`The type of the webhook node "${startNode.name}" is not known`,
+			);
 		} else if (nodeType.webhook === undefined) {
-			throw new InternalServerError(`The node "${node.name}" does not have any webhooks defined.`);
+			throw new InternalServerError(
+				`The node "${startNode.name}" does not have any webhooks defined.`,
+			);
 		}
+
+		const { executionMode } = this;
 
 		let user: User;
 		if (
@@ -188,8 +191,8 @@ export abstract class AbstractWebhooks {
 
 		// Get the responseMode
 		const responseMode = workflow.expression.getSimpleParameterValue(
-			node,
-			webhookData.webhookDescription.responseMode,
+			startNode,
+			webhookDescription.responseMode,
 			executionMode,
 			additionalData.timezone,
 			additionalKeys,
@@ -198,8 +201,8 @@ export abstract class AbstractWebhooks {
 		) as WebhookResponseMode;
 
 		const responseCode = workflow.expression.getSimpleParameterValue(
-			node,
-			webhookData.webhookDescription.responseCode,
+			startNode,
+			webhookDescription.responseCode,
 			executionMode,
 			additionalData.timezone,
 			additionalKeys,
@@ -208,8 +211,8 @@ export abstract class AbstractWebhooks {
 		) as number;
 
 		const responseData = workflow.expression.getSimpleParameterValue(
-			node,
-			webhookData.webhookDescription.responseData,
+			startNode,
+			webhookDescription.responseData,
 			executionMode,
 			additionalData.timezone,
 			additionalKeys,
@@ -231,7 +234,7 @@ export abstract class AbstractWebhooks {
 		additionalData.httpResponse = res;
 
 		const binaryData = workflow.expression.getSimpleParameterValue(
-			node,
+			startNode,
 			'={{$parameter["options"]["binaryData"]}}',
 			executionMode,
 			additionalData.timezone,
@@ -273,14 +276,14 @@ export abstract class AbstractWebhooks {
 
 			try {
 				webhookResultData = await workflow.runWebhook(
-					webhookData.webhookDescription.name,
-					node,
+					webhookDescription.name,
+					startNode,
 					nodeType as WebhookNodeType,
 					additionalData,
 					NodeExecuteFunctions,
 					executionMode,
 				);
-				Container.get(EventsService).emit('nodeFetchedData', workflow.id, node);
+				Container.get(EventsService).emit('nodeFetchedData', workflow.id, startNode);
 			} catch (err) {
 				// Send error response to webhook caller
 				const errorMessage = 'Workflow Webhook Error: Workflow could not be started!';
@@ -291,7 +294,7 @@ export abstract class AbstractWebhooks {
 				runExecutionDataMerge = {
 					resultData: {
 						runData: {},
-						lastNodeExecuted: node.name,
+						lastNodeExecuted: startNode.name,
 						error: {
 							...err,
 							message: err.message,
@@ -315,10 +318,10 @@ export abstract class AbstractWebhooks {
 				$executionId: executionId,
 			};
 
-			if (webhookData.webhookDescription.responseHeaders !== undefined) {
+			if (webhookDescription.responseHeaders !== undefined) {
 				const responseHeaders = workflow.expression.getComplexParameterValue(
-					node,
-					webhookData.webhookDescription.responseHeaders,
+					startNode,
+					webhookDescription.responseHeaders,
 					executionMode,
 					additionalData.timezone,
 					additionalKeys,
@@ -405,7 +408,7 @@ export abstract class AbstractWebhooks {
 			// Initialize the data of the webhook node
 			const nodeExecutionStack: IExecuteData[] = [];
 			nodeExecutionStack.push({
-				node,
+				node: startNode,
 				data: {
 					main: webhookResultData.workflowData,
 				},
@@ -591,8 +594,8 @@ export abstract class AbstractWebhooks {
 								data = returnData.data!.main[0]![0].json;
 
 								const responsePropertyName = workflow.expression.getSimpleParameterValue(
-									node,
-									webhookData.webhookDescription.responsePropertyName,
+									startNode,
+									webhookDescription.responsePropertyName,
 									executionMode,
 									additionalData.timezone,
 									additionalKeys,
@@ -605,8 +608,8 @@ export abstract class AbstractWebhooks {
 								}
 
 								const responseContentType = workflow.expression.getSimpleParameterValue(
-									node,
-									webhookData.webhookDescription.responseContentType,
+									startNode,
+									webhookDescription.responseContentType,
 									executionMode,
 									additionalData.timezone,
 									additionalKeys,
@@ -651,8 +654,8 @@ export abstract class AbstractWebhooks {
 								}
 
 								const responseBinaryPropertyName = workflow.expression.getSimpleParameterValue(
-									node,
-									webhookData.webhookDescription.responseBinaryPropertyName,
+									startNode,
+									webhookDescription.responseBinaryPropertyName,
 									executionMode,
 									additionalData.timezone,
 									additionalKeys,

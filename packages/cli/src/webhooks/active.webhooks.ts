@@ -2,13 +2,11 @@ import { Service } from 'typedi';
 import type { Application, Response } from 'express';
 import type {
 	INode,
-	IWebhookData,
 	IWorkflowExecuteAdditionalData,
 	WorkflowActivateMode,
 	WorkflowExecuteMode,
 } from 'n8n-workflow';
 import {
-	NodeHelpers,
 	Workflow,
 	LoggerProxy as Logger,
 	ErrorReporterProxy as ErrorReporter,
@@ -17,15 +15,14 @@ import {
 import { NodeExecuteFunctions } from 'n8n-core';
 
 import config from '@/config';
-import { WorkflowRepository } from '@/databases/repositories';
 import type { WorkflowEntity } from '@db/entities/WorkflowEntity';
+import { WorkflowRepository } from '@/databases/repositories';
 import { NodeTypes } from '@/NodeTypes';
 import { WebhookService } from '@/services/webhook.service';
 import { NotFoundError } from '@/ResponseHelper';
 import * as WorkflowExecuteAdditionalData from '@/WorkflowExecuteAdditionalData';
 // import { webhookNotFoundErrorMessage } from '@/utils';
 import { WorkflowsService } from '@/workflows/workflows.services';
-import type { IWorkflowDb } from '@/Interfaces';
 
 import { AbstractWebhooks } from './abstract.webhooks';
 import type { RegisteredActiveWebhook, WebhookRequest, WebhookResponseCallbackData } from './types';
@@ -34,11 +31,7 @@ import type { RegisteredActiveWebhook, WebhookRequest, WebhookResponseCallbackDa
 //	"The workflow must be active for a production URL to run successfully. You can activate the workflow using the toggle in the top-right of the editor. Note that unlike test URL calls, production URL calls aren't shown on the canvas (only in the executions list)";
 
 @Service()
-export class ActiveWebhooks extends AbstractWebhooks {
-	private workflows: Map<string, Workflow> = new Map();
-
-	private webhookData: Map<string, IWorkflowDb> = new Map();
-
+export class ActiveWebhooks extends AbstractWebhooks<RegisteredActiveWebhook> {
 	constructor(
 		nodeTypes: NodeTypes,
 		private webhookService: WebhookService,
@@ -53,37 +46,24 @@ export class ActiveWebhooks extends AbstractWebhooks {
 		app.all(`/${prefix}/:path(*)`, this.handleRequest.bind(this));
 	}
 
-	async executeWebhook(
+	override async executeWebhook(
 		webhook: RegisteredActiveWebhook,
 		request: WebhookRequest,
 		response: Response,
 	): Promise<WebhookResponseCallbackData> {
-		const method = request.method;
-		const { webhookPath, workflowId, nodeName } = webhook;
+		const { workflowId, startNode, workflow, description } = webhook;
 
-		const workflow = this.workflows.get(workflowId);
-		if (!workflow) {
+		const workflowData = this.workflows.get(workflowId);
+		if (!workflowData) {
 			throw new NotFoundError(`Could not find workflow with id "${workflowId}"`);
 		}
 
-		const workflowData = this.webhookData.get(workflowId) as WorkflowEntity;
-		const workflowOwnerId = workflowData.shared[0].userId;
-		const additionalData = await WorkflowExecuteAdditionalData.getBase(workflowOwnerId);
-
-		// Get the node which has the webhook defined to know where to start from and to get additional data
-		const startNode = workflow.getNode(nodeName) as INode;
-		const webhookData = NodeHelpers.getNodeWebhooks(workflow, startNode, additionalData).find(
-			(w) => w.httpMethod === method && w.path === webhookPath,
-		) as IWebhookData;
-
 		return new Promise((resolve, reject) => {
-			const executionMode = 'webhook';
 			void this.startWebhookExecution(
 				workflow,
-				webhookData,
+				description,
 				workflowData,
 				startNode,
-				executionMode,
 				undefined,
 				undefined,
 				undefined,
@@ -100,20 +80,21 @@ export class ActiveWebhooks extends AbstractWebhooks {
 	/** Adds all the webhooks of the workflow */
 	async addWorkflowWebhooks(
 		workflow: Workflow,
-		workflowData: IWorkflowDb,
+		workflowData: WorkflowEntity,
 		additionalData: IWorkflowExecuteAdditionalData,
 		mode: WorkflowExecuteMode,
 		activation: WorkflowActivateMode,
 	): Promise<void> {
 		const webhooks = this.getWorkflowWebhooks(workflow, additionalData, undefined, true);
 		for (const webhookData of webhooks) {
+			const { workflowId } = webhookData;
 			const node = workflow.getNode(webhookData.node) as INode;
 			node.name = webhookData.node;
 
 			const path = webhookData.path;
 
 			const webhook = this.webhookService.createWebhook({
-				workflowId: webhookData.workflowId,
+				workflowId,
 				webhookPath: path,
 				node: node.name,
 				method: webhookData.httpMethod,
@@ -182,12 +163,20 @@ export class ActiveWebhooks extends AbstractWebhooks {
 				throw error;
 			}
 
-			this.registerWebhook(webhook);
+			// Get the node which has the webhook defined to know where to start from and to get additional data
+			const startNode = workflow.getNode(webhookData.node) as INode;
+			const pathOrId = webhook.isDynamic ? webhook.webhookId! : webhook.webhookPath;
+			this.registerWebhook(pathOrId, webhook.method, {
+				isDynamic: webhook.isDynamic,
+				webhookPath: webhook.webhookPath,
+				workflowId,
+				startNode,
+				workflow,
+				description: webhookData.webhookDescription,
+			});
 		}
 
-		this.workflows.set(workflow.id, workflow);
-		this.webhookData.set(workflow.id, workflowData);
-
+		this.workflows.set(workflowData.id, workflowData);
 		await this.webhookService.populateCache();
 		await WorkflowsService.saveStaticData(workflow);
 	}

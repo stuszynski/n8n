@@ -80,10 +80,10 @@ export class ActiveWorkflowRunner {
 		// NOTE
 		// Here I guess we can have a flag on the workflow table like hasTrigger
 		// so instead of pulling all the active webhooks just pull the actives that have a trigger
-		const workflowsData: IWorkflowDb[] = (await this.workflowRepository.find({
+		const workflowsData = await this.workflowRepository.find({
 			where: { active: true },
 			relations: ['shared', 'shared.user', 'shared.user.globalRole', 'shared.role'],
-		})) as IWorkflowDb[];
+		});
 
 		if (!config.getEnv('endpoints.skipWebhooksDeregistrationOnShutdown')) {
 			// Do not clean up database when skip registration is done.
@@ -306,7 +306,7 @@ export class ActiveWorkflowRunner {
 	 * and overwrites the emit to be able to start it in subprocess
 	 */
 	getExecuteTriggerFunctions(
-		workflowData: IWorkflowDb,
+		workflowData: WorkflowEntity,
 		additionalData: IWorkflowExecuteAdditionalDataWorkflow,
 		mode: WorkflowExecuteMode,
 		activation: WorkflowActivateMode,
@@ -408,7 +408,7 @@ export class ActiveWorkflowRunner {
 	async add(
 		workflowId: string,
 		activation: WorkflowActivateMode,
-		workflowData?: IWorkflowDb,
+		workflowData?: WorkflowEntity,
 	): Promise<void> {
 		let workflowInstance: Workflow;
 		try {
@@ -416,7 +416,7 @@ export class ActiveWorkflowRunner {
 				workflowData = (await this.workflowRepository.findOne({
 					where: { id: workflowId },
 					relations: ['shared', 'shared.user', 'shared.user.globalRole', 'shared.role'],
-				})) as IWorkflowDb;
+				})) as WorkflowEntity;
 			}
 
 			if (!workflowData) {
@@ -442,9 +442,7 @@ export class ActiveWorkflowRunner {
 			}
 
 			const mode = 'trigger';
-			const workflowOwner = (workflowData as WorkflowEntity).shared.find(
-				(shared) => shared.role.name === 'owner',
-			);
+			const workflowOwner = workflowData.shared.find((shared) => shared.role.name === 'owner');
 			if (!workflowOwner) {
 				throw new Error('Workflow cannot be activated because it has no owner');
 			}
@@ -535,7 +533,7 @@ export class ActiveWorkflowRunner {
 	 */
 	addQueuedWorkflowActivation(
 		activationMode: WorkflowActivateMode,
-		workflowData: IWorkflowDb,
+		workflowData: WorkflowEntity,
 	): void {
 		const workflowId = workflowData.id;
 		const workflowName = workflowData.name;
