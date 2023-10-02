@@ -18,13 +18,14 @@ import { mocked } from 'jest-mock';
 import type { CommunityPackages } from '@/Interfaces';
 import { CommunityPackageService } from '@/services/communityPackage.service';
 import { InstalledNodesRepository, InstalledPackagesRepository } from '@/databases/repositories';
-import Container from 'typedi';
+import { Container } from 'typedi';
 import { InstalledNodes } from '@/databases/entities/InstalledNodes';
 import {
 	COMMUNITY_NODE_VERSION,
 	COMMUNITY_PACKAGE_VERSION,
 } from '../../integration/shared/constants';
 import type { PublicInstalledPackage } from 'n8n-workflow';
+import { mock } from 'jest-mock-extended';
 
 jest.mock('fs/promises');
 jest.mock('child_process');
@@ -62,7 +63,7 @@ describe('CommunityPackageService', () => {
 		});
 	});
 
-	const communityPackageService = new CommunityPackageService(installedPackageRepository);
+	const communityPackageService = new CommunityPackageService(mock(), installedPackageRepository);
 
 	beforeEach(() => {
 		config.load(config.default);

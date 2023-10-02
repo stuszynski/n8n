@@ -4,14 +4,10 @@ import { mock } from 'jest-mock-extended';
 import { mockInstance } from '../../integration/shared/utils/';
 import { ExecutionRepository } from '@/databases/repositories';
 import config from '@/config';
-import { LoggerProxy } from 'n8n-workflow';
-import { getLogger } from '@/Logger';
 import { TIME } from '@/constants';
 import { DateUtils } from 'typeorm/util/DateUtils';
 
 jest.mock('typeorm/util/DateUtils');
-
-LoggerProxy.init(getLogger());
 
 const { objectContaining } = expect;
 
@@ -33,7 +29,6 @@ describe('ExecutionRepository', () => {
 
 	beforeAll(() => {
 		Container.set(ExecutionRepository, executionRepository);
-		LoggerProxy.init(getLogger());
 	});
 
 	beforeEach(() => {

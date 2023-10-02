@@ -5,7 +5,7 @@ import { ExternalSecretsManager } from '@/ExternalSecrets/ExternalSecretsManager
 import { ExternalSecretsProviders } from '@/ExternalSecrets/ExternalSecretsProviders.ee';
 import { mock } from 'jest-mock-extended';
 import { UserSettings } from 'n8n-core';
-import Container from 'typedi';
+import { Container } from 'typedi';
 import { mockInstance } from '../../integration/shared/utils';
 import {
 	DummyProvider,
@@ -71,7 +71,7 @@ describe('External Secrets Manager', () => {
 	});
 
 	test('should get secret', async () => {
-		manager = new ExternalSecretsManager(settingsRepo, licenseMock, providersMock);
+		manager = new ExternalSecretsManager(mock(), settingsRepo, licenseMock, providersMock);
 
 		await manager.init();
 
@@ -82,7 +82,7 @@ describe('External Secrets Manager', () => {
 		mockProvidersInstance.setProviders({
 			dummy: ErrorProvider,
 		});
-		manager = new ExternalSecretsManager(settingsRepo, licenseMock, providersMock);
+		manager = new ExternalSecretsManager(mock(), settingsRepo, licenseMock, providersMock);
 
 		expect(async () => manager!.init()).not.toThrow();
 	});
@@ -91,7 +91,7 @@ describe('External Secrets Manager', () => {
 		mockProvidersInstance.setProviders({
 			dummy: ErrorProvider,
 		});
-		manager = new ExternalSecretsManager(settingsRepo, licenseMock, providersMock);
+		manager = new ExternalSecretsManager(mock(), settingsRepo, licenseMock, providersMock);
 
 		await manager.init();
 		expect(() => manager!.shutdown()).not.toThrow();
@@ -99,7 +99,7 @@ describe('External Secrets Manager', () => {
 	});
 
 	test('should save provider settings', async () => {
-		manager = new ExternalSecretsManager(settingsRepo, licenseMock, providersMock);
+		manager = new ExternalSecretsManager(mock(), settingsRepo, licenseMock, providersMock);
 
 		const settingsSpy = jest.spyOn(settingsRepo, 'saveEncryptedSecretsProviderSettings');
 
@@ -122,7 +122,7 @@ describe('External Secrets Manager', () => {
 
 	test('should call provider update functions on a timer', async () => {
 		jest.useFakeTimers();
-		manager = new ExternalSecretsManager(settingsRepo, licenseMock, providersMock);
+		manager = new ExternalSecretsManager(mock(), settingsRepo, licenseMock, providersMock);
 
 		await manager.init();
 
@@ -139,6 +139,7 @@ describe('External Secrets Manager', () => {
 		jest.useFakeTimers();
 
 		manager = new ExternalSecretsManager(
+			mock(),
 			settingsRepo,
 			mock<License>({
 				isExternalSecretsEnabled() {
@@ -165,7 +166,7 @@ describe('External Secrets Manager', () => {
 		mockProvidersInstance.setProviders({
 			dummy: FailedProvider,
 		});
-		manager = new ExternalSecretsManager(settingsRepo, licenseMock, providersMock);
+		manager = new ExternalSecretsManager(mock(), settingsRepo, licenseMock, providersMock);
 
 		await manager.init();
 
@@ -179,7 +180,7 @@ describe('External Secrets Manager', () => {
 	});
 
 	test('should reinitialize a provider when save provider settings', async () => {
-		manager = new ExternalSecretsManager(settingsRepo, licenseMock, providersMock);
+		manager = new ExternalSecretsManager(mock(), settingsRepo, licenseMock, providersMock);
 
 		await manager.init();
 

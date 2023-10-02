@@ -1,7 +1,9 @@
+import { Container } from 'typedi';
 import config from '@/config';
 import type { ICredentialDataDecryptedObject } from 'n8n-workflow';
-import { deepCopy, LoggerProxy as Logger, jsonParse, ICredentialTypes } from 'n8n-workflow';
+import { deepCopy, jsonParse, ICredentialTypes } from 'n8n-workflow';
 import type { ICredentialsOverwrite } from '@/Interfaces';
+import { Logger } from '@/Logger';
 
 class CredentialsOverwritesClass {
 	private overwriteData: ICredentialsOverwrite = {};
@@ -58,7 +60,7 @@ class CredentialsOverwritesClass {
 		}
 
 		if (!this.credentialTypes.recognizes(type)) {
-			Logger.warn(`Unknown credential type ${type} in Credential overwrites`);
+			Container.get(Logger).warn(`Unknown credential type ${type} in Credential overwrites`);
 			return;
 		}
 

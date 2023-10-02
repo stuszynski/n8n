@@ -1,7 +1,6 @@
 import { exec } from 'child_process';
 import { access as fsAccess, mkdir as fsMkdir } from 'fs/promises';
 
-import { LoggerProxy as Logger } from 'n8n-workflow';
 import { UserSettings } from 'n8n-core';
 import { Service } from 'typedi';
 import { promisify } from 'util';
@@ -23,6 +22,7 @@ import type { PublicInstalledPackage } from 'n8n-workflow';
 import type { PackageDirectoryLoader } from 'n8n-core';
 import type { CommunityPackages } from '@/Interfaces';
 import type { LoadNodesAndCredentials } from '@/LoadNodesAndCredentials';
+import { Logger } from '@/Logger';
 
 const {
 	PACKAGE_NAME_NOT_PROVIDED,
@@ -46,7 +46,10 @@ const INVALID_OR_SUSPICIOUS_PACKAGE_NAME = /[^0-9a-z@\-./]/;
 
 @Service()
 export class CommunityPackageService {
-	constructor(private readonly installedPackageRepository: InstalledPackagesRepository) {}
+	constructor(
+		private readonly logger: Logger,
+		private readonly installedPackageRepository: InstalledPackagesRepository,
+	) {}
 
 	async findInstalledPackage(packageName: string) {
 		return this.installedPackageRepository.findOne({
@@ -73,7 +76,7 @@ export class CommunityPackageService {
 		} catch (maybeError) {
 			const error = toError(maybeError);
 
-			Logger.error('Failed to save installed packages and nodes', {
+			this.logger.error('Failed to save installed packages and nodes', {
 				error,
 				packageName: packageLoader.packageJson.name,
 			});
@@ -148,7 +151,7 @@ export class CommunityPackageService {
 				if (errorMessage.includes(npmMessage)) throw new Error(n8nMessage);
 			});
 
-			Logger.warn('npm command failed', { errorMessage });
+			this.logger.warn('npm command failed', { errorMessage });
 
 			throw new Error(PACKAGE_FAILED_TO_INSTALL);
 		}
@@ -273,12 +276,12 @@ export class CommunityPackageService {
 
 		if (missingPackages.size === 0) return;
 
-		Logger.error(
+		this.logger.error(
 			'n8n detected that some packages are missing. For more information, visit https://docs.n8n.io/integrations/community-nodes/troubleshooting/',
 		);
 
 		if (reinstallMissingPackages || process.env.N8N_REINSTALL_MISSING_PACKAGES) {
-			Logger.info('Attempting to reinstall missing packages', { missingPackages });
+			this.logger.info('Attempting to reinstall missing packages', { missingPackages });
 			try {
 				// Optimistic approach - stop if any installation fails
 
@@ -290,9 +293,9 @@ export class CommunityPackageService {
 
 					missingPackages.delete(missingPackage);
 				}
-				Logger.info('Packages reinstalled successfully. Resuming regular initialization.');
+				this.logger.info('Packages reinstalled successfully. Resuming regular initialization.');
 			} catch (error) {
-				Logger.error('n8n was unable to install the missing packages.');
+				this.logger.error('n8n was unable to install the missing packages.');
 			}
 		}
 

@@ -1,7 +1,5 @@
-import Container from 'typedi';
+import { Container } from 'typedi';
 import config from '@/config';
-import { LoggerProxy } from 'n8n-workflow';
-import { getLogger } from '@/Logger';
 import { RedisService } from '@/services/redis.service';
 
 const redisService = Container.get(RedisService);
@@ -35,7 +33,6 @@ const STREAM_CHANNEL = 'teststream';
 
 describe('cacheService', () => {
 	beforeAll(async () => {
-		LoggerProxy.init(getLogger());
 		jest.mock('ioredis', () => {
 			const Redis = require('ioredis-mock');
 			if (typeof Redis === 'object') {

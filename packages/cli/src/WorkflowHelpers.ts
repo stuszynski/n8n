@@ -16,7 +16,6 @@ import type {
 } from 'n8n-workflow';
 import {
 	ErrorReporterProxy as ErrorReporter,
-	LoggerProxy as Logger,
 	NodeOperationError,
 	SubworkflowOperationError,
 	Workflow,
@@ -44,6 +43,7 @@ import { RoleService } from './services/role.service';
 import { ExecutionRepository, RoleRepository } from './databases/repositories';
 import { VariablesService } from './environments/variables/variables.service';
 import type { CredentialsEntity } from './databases/entities/CredentialsEntity';
+import { Logger } from './Logger';
 
 const ERROR_TRIGGER_TYPE = config.getEnv('nodes.errorTriggerType');
 
@@ -142,13 +142,14 @@ export async function executeErrorWorkflow(
 	workflowErrorData: IWorkflowErrorData,
 	runningUser: User,
 ): Promise<void> {
+	const logger = Container.get(Logger);
 	// Wrap everything in try/catch to make sure that no errors bubble up and all get caught here
 	try {
 		const workflowData = await Db.collections.Workflow.findOneBy({ id: workflowId });
 
 		if (workflowData === null) {
 			// The error workflow could not be found
-			Logger.error(
+			logger.error(
 				`Calling Error Workflow for "${workflowErrorData.workflow.id}". Could not find error workflow "${workflowId}"`,
 				{ workflowId },
 			);
@@ -204,7 +205,7 @@ export async function executeErrorWorkflow(
 
 				await Container.get(ExecutionRepository).createNewExecution(fullExecutionData);
 			}
-			Logger.info('Error workflow execution blocked due to subworkflow settings', {
+			logger.info('Error workflow execution blocked due to subworkflow settings', {
 				erroredWorkflowId: workflowErrorData.workflow.id,
 				errorWorkflowId: workflowId,
 			});
@@ -221,7 +222,7 @@ export async function executeErrorWorkflow(
 		}
 
 		if (workflowStartNode === undefined) {
-			Logger.error(
+			logger.error(
 				`Calling Error Workflow for "${workflowErrorData.workflow.id}". Could not find "${ERROR_TRIGGER_TYPE}" in workflow "${workflowId}"`,
 			);
 			return;
@@ -269,7 +270,7 @@ export async function executeErrorWorkflow(
 		await workflowRunner.run(runData);
 	} catch (error) {
 		ErrorReporter.error(error);
-		Logger.error(
+		logger.error(
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 			`Calling Error Workflow for "${workflowErrorData.workflow.id}": "${error.message}"`,
 			{ workflowId: workflowErrorData.workflow.id },
@@ -531,9 +532,10 @@ export function validateWorkflowCredentialUsage(
 	const isTamperingAttempt = (inaccessibleCredNodeId: string) =>
 		!previouslyExistingNodeIds.includes(inaccessibleCredNodeId);
 
+	const logger = Container.get(Logger);
 	nodesWithCredentialsUserDoesNotHaveAccessTo.forEach((node) => {
 		if (isTamperingAttempt(node.id)) {
-			Logger.verbose('Blocked workflow update due to tampering attempt', {
+			logger.verbose('Blocked workflow update due to tampering attempt', {
 				nodeType: node.type,
 				nodeName: node.name,
 				nodeId: node.id,
@@ -551,7 +553,7 @@ export function validateWorkflowCredentialUsage(
 			(newWorkflowNode) => newWorkflowNode.id === node.id,
 		);
 
-		Logger.debug('Replacing node with previous version when saving updated workflow', {
+		logger.debug('Replacing node with previous version when saving updated workflow', {
 			nodeType: node.type,
 			nodeName: node.name,
 			nodeId: node.id,

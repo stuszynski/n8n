@@ -1,4 +1,4 @@
-import Container from 'typedi';
+import { Container } from 'typedi';
 import {
 	generateSshKeyPair,
 	getRepoType,
@@ -16,8 +16,6 @@ import {
 	SOURCE_CONTROL_GIT_FOLDER,
 	SOURCE_CONTROL_SSH_KEY_NAME,
 } from '@/environments/sourceControl/constants';
-import { LoggerProxy } from 'n8n-workflow';
-import { getLogger } from '@/Logger';
 import { constants as fsConstants, accessSync } from 'fs';
 import type { SourceControlledFile } from '@/environments/sourceControl/types/sourceControlledFile';
 import type { SourceControlPreferences } from '@/environments/sourceControl/types/sourceControlPreferences';
@@ -153,7 +151,6 @@ const pullResult: SourceControlledFile[] = [
 ];
 
 beforeAll(async () => {
-	LoggerProxy.init(getLogger());
 	Container.get(License).isSourceControlLicensed = () => true;
 	Container.get(SourceControlPreferencesService).getPreferences = () => ({
 		branchName: 'main',

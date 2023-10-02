@@ -1,7 +1,7 @@
 import type { TEntitlement, TFeatures, TLicenseBlock } from '@n8n_io/license-sdk';
 import { LicenseManager } from '@n8n_io/license-sdk';
-import type { ILogger } from 'n8n-workflow';
-import { getLogger } from './Logger';
+import { Container, Service } from 'typedi';
+import { Logger } from '@/Logger';
 import config from '@/config';
 import * as Db from '@/Db';
 import {
@@ -11,7 +11,6 @@ import {
 	SETTINGS_LICENSE_CERT_KEY,
 	UNLIMITED_LICENSE_QUOTA,
 } from './constants';
-import Container, { Service } from 'typedi';
 import type { BooleanLicenseFeature, N8nInstanceType, NumericLicenseFeature } from './Interfaces';
 import type { RedisServicePubSubPublisher } from './services/redis/RedisServicePubSubPublisher';
 import { RedisService } from './services/redis.service';
@@ -24,17 +23,13 @@ type FeatureReturnType = Partial<
 
 @Service()
 export class License {
-	private logger: ILogger;
-
 	private manager: LicenseManager | undefined;
 
 	instanceId: string | undefined;
 
 	private redisPublisher: RedisServicePubSubPublisher;
 
-	constructor() {
-		this.logger = getLogger();
-	}
+	constructor(private readonly logger: Logger) {}
 
 	async init(instanceId: string, instanceType: N8nInstanceType = 'main') {
 		if (this.manager) {

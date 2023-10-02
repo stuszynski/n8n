@@ -1,15 +1,14 @@
-import Container from 'typedi';
+import { Container } from 'typedi';
 import config from '@/config';
-import { LoggerProxy } from 'n8n-workflow';
-import { getLogger } from '@/Logger';
 import { OrchestrationService } from '@/services/orchestration.service';
 import type { RedisServiceWorkerResponseObject } from '@/services/redis/RedisServiceCommands';
 import { eventBus } from '@/eventbus';
 import { RedisService } from '@/services/redis.service';
 import { mockInstance } from '../../integration/shared/utils';
-import { handleWorkerResponseMessage } from '../../../src/services/orchestration/handleWorkerResponseMessage';
-import { handleCommandMessage } from '../../../src/services/orchestration/handleCommandMessage';
-import { OrchestrationHandlerService } from '../../../src/services/orchestration.handler.service';
+import { handleWorkerResponseMessage } from '@/services/orchestration/handleWorkerResponseMessage';
+import { handleCommandMessage } from '@/services/orchestration/handleCommandMessage';
+import { OrchestrationHandlerService } from '@/services/orchestration.handler.service';
+import { Logger } from '@/Logger';
 
 const os = Container.get(OrchestrationService);
 const handler = Container.get(OrchestrationHandlerService);
@@ -30,9 +29,10 @@ const workerRestartEventbusResponse: RedisServiceWorkerResponseObject = {
 };
 
 describe('Orchestration Service', () => {
+	const logger = mockInstance(Logger);
+
 	beforeAll(async () => {
 		mockInstance(RedisService);
-		LoggerProxy.init(getLogger());
 		jest.mock('ioredis', () => {
 			const Redis = require('ioredis-mock');
 			if (typeof Redis === 'object') {
@@ -48,7 +48,7 @@ describe('Orchestration Service', () => {
 				return new Redis(args);
 			};
 		});
-		jest.mock('../../../src/services/redis/RedisServicePubSubPublisher', () => {
+		jest.mock('@/services/redis/RedisServicePubSubPublisher', () => {
 			return jest.fn().mockImplementation(() => {
 				return {
 					init: jest.fn(),
@@ -58,7 +58,7 @@ describe('Orchestration Service', () => {
 				};
 			});
 		});
-		jest.mock('../../../src/services/redis/RedisServicePubSubSubscriber', () => {
+		jest.mock('@/services/redis/RedisServicePubSubSubscriber', () => {
 			return jest.fn().mockImplementation(() => {
 				return {
 					subscribeToCommandChannel: jest.fn(),
@@ -71,8 +71,8 @@ describe('Orchestration Service', () => {
 	});
 
 	afterAll(async () => {
-		jest.mock('../../../src/services/redis/RedisServicePubSubPublisher').restoreAllMocks();
-		jest.mock('../../../src/services/redis/RedisServicePubSubSubscriber').restoreAllMocks();
+		jest.mock('@/services/redis/RedisServicePubSubPublisher').restoreAllMocks();
+		jest.mock('@/services/redis/RedisServicePubSubSubscriber').restoreAllMocks();
 		await os.shutdown();
 	});
 
@@ -92,7 +92,6 @@ describe('Orchestration Service', () => {
 	});
 
 	test('should handle command messages from others', async () => {
-		jest.spyOn(LoggerProxy, 'error');
 		const responseFalseId = await handleCommandMessage(
 			JSON.stringify({
 				senderId: 'test',
@@ -102,8 +101,7 @@ describe('Orchestration Service', () => {
 		expect(responseFalseId).toBeDefined();
 		expect(responseFalseId!.command).toEqual('reloadLicense');
 		expect(responseFalseId!.senderId).toEqual('test');
-		expect(LoggerProxy.error).toHaveBeenCalled();
-		jest.spyOn(LoggerProxy, 'error').mockRestore();
+		expect(logger.error).toHaveBeenCalled();
 	});
 
 	test('should reject command messages from iteslf', async () => {

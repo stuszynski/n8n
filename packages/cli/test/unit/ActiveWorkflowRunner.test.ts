@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid';
 import { mocked } from 'jest-mock';
 
 import type { ICredentialTypes, INode, INodesAndCredentials } from 'n8n-workflow';
-import { LoggerProxy, NodeApiError, NodeOperationError, Workflow } from 'n8n-workflow';
+import { NodeApiError, NodeOperationError, Workflow } from 'n8n-workflow';
 
 import { ActiveWorkflowRunner } from '@/ActiveWorkflowRunner';
 import * as Db from '@/Db';
@@ -10,7 +10,6 @@ import { WorkflowEntity } from '@db/entities/WorkflowEntity';
 import { SharedWorkflow } from '@db/entities/SharedWorkflow';
 import { Role } from '@db/entities/Role';
 import { User } from '@db/entities/User';
-import { getLogger } from '@/Logger';
 import { randomEmail, randomName } from '../integration/shared/random';
 import * as Helpers from './Helpers';
 import * as WorkflowExecuteAdditionalData from '@/WorkflowExecuteAdditionalData';
@@ -27,6 +26,7 @@ import { NodeTypes } from '@/NodeTypes';
 import { SecretsHelper } from '@/SecretsHelpers';
 import { WebhookService } from '@/services/webhook.service';
 import { VariablesService } from '../../src/environments/variables/variables.service';
+import { Logger } from '@/Logger';
 
 /**
  * TODO:
@@ -143,9 +143,9 @@ describe('ActiveWorkflowRunner', () => {
 	let externalHooks: ExternalHooks;
 	let activeWorkflowRunner: ActiveWorkflowRunner;
 	const webhookService = mockInstance(WebhookService);
+	const logger = mockInstance(Logger);
 
 	beforeAll(async () => {
-		LoggerProxy.init(getLogger());
 		const nodesAndCredentials: INodesAndCredentials = {
 			loaded: {
 				nodes: MOCK_NODE_TYPES_DATA,
@@ -166,7 +166,8 @@ describe('ActiveWorkflowRunner', () => {
 	beforeEach(() => {
 		externalHooks = mock();
 		activeWorkflowRunner = new ActiveWorkflowRunner(
-			new ActiveExecutions(),
+			logger,
+			Container.get(ActiveExecutions),
 			externalHooks,
 			Container.get(NodeTypes),
 			webhookService,

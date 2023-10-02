@@ -52,7 +52,7 @@ describe('Telemetry', () => {
 		const postHog = new PostHogClient();
 		await postHog.init(instanceId);
 
-		telemetry = new Telemetry(postHog, mock());
+		telemetry = new Telemetry(mock(), postHog, mock());
 		telemetry.setInstanceId(instanceId);
 		(telemetry as any).rudderStack = mockRudderStack;
 	});

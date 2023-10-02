@@ -1,11 +1,11 @@
 import { Command } from '@oclif/command';
 import { ExitError } from '@oclif/errors';
 import { Container } from 'typedi';
-import { LoggerProxy, ErrorReporterProxy as ErrorReporter, sleep } from 'n8n-workflow';
+import { ErrorReporterProxy as ErrorReporter, sleep } from 'n8n-workflow';
 import type { IUserSettings } from 'n8n-core';
 import { BinaryDataService, UserSettings } from 'n8n-core';
 import type { AbstractServer } from '@/AbstractServer';
-import { getLogger } from '@/Logger';
+import { Logger } from '@/Logger';
 import config from '@/config';
 import * as Db from '@/Db';
 import * as CrashJournal from '@/CrashJournal';
@@ -25,7 +25,7 @@ import { initExpressionEvaluator } from '@/ExpressionEvalator';
 import { generateHostInstanceId } from '../databases/utils/generators';
 
 export abstract class BaseCommand extends Command {
-	protected logger = LoggerProxy.init(getLogger());
+	protected logger = Container.get(Logger);
 
 	protected externalHooks: IExternalHooksClass;
 
@@ -73,12 +73,12 @@ export abstract class BaseCommand extends Command {
 		const dbType = config.getEnv('database.type');
 
 		if (['mysqldb', 'mariadb'].includes(dbType)) {
-			LoggerProxy.warn(
+			this.logger.warn(
 				'Support for MySQL/MariaDB has been deprecated and will be removed with an upcoming version of n8n. Please migrate to PostgreSQL.',
 			);
 		}
 		if (process.env.EXECUTIONS_PROCESS === 'own') {
-			LoggerProxy.warn(
+			this.logger.warn(
 				'Own mode has been deprecated and will be removed in a future version of n8n. If you need the isolation and performance gains, please consider using queue mode.',
 			);
 		}
@@ -144,14 +144,14 @@ export abstract class BaseCommand extends Command {
 			const hasCert = (await license.loadCertStr()).length > 0;
 
 			if (hasCert) {
-				return LoggerProxy.debug('Skipping license activation');
+				return this.logger.debug('Skipping license activation');
 			}
 
 			try {
-				LoggerProxy.debug('Attempting license activation');
+				this.logger.debug('Attempting license activation');
 				await license.activate(activationKey);
 			} catch (e) {
-				LoggerProxy.error('Could not activate license', e as Error);
+				this.logger.error('Could not activate license', e as Error);
 			}
 		}
 	}

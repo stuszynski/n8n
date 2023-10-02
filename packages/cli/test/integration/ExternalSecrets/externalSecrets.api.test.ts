@@ -5,7 +5,7 @@ import * as utils from '../shared/utils/';
 import type { ExternalSecretsSettings, SecretsProviderState } from '@/Interfaces';
 import { UserSettings } from 'n8n-core';
 import { SettingsRepository } from '@/databases/repositories/settings.repository';
-import Container from 'typedi';
+import { Container } from 'typedi';
 import { AES, enc } from 'crypto-js';
 import { ExternalSecretsProviders } from '@/ExternalSecrets/ExternalSecretsProviders.ee';
 import {
@@ -18,6 +18,7 @@ import config from '@/config';
 import { ExternalSecretsManager } from '@/ExternalSecrets/ExternalSecretsManager.ee';
 import { CREDENTIAL_BLANKING_VALUE } from '@/constants';
 import type { IDataObject } from 'n8n-workflow';
+import { mock } from 'jest-mock-extended';
 
 let authOwnerAgent: SuperAgentTest;
 let authMemberAgent: SuperAgentTest;
@@ -58,6 +59,7 @@ const resetManager = async () => {
 	Container.set(
 		ExternalSecretsManager,
 		new ExternalSecretsManager(
+			mock(),
 			Container.get(SettingsRepository),
 			licenseLike,
 			mockProvidersInstance,

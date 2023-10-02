@@ -50,7 +50,7 @@ import type {
 	ResourceMapperFields,
 	IN8nUISettings,
 } from 'n8n-workflow';
-import { LoggerProxy, jsonParse } from 'n8n-workflow';
+import { jsonParse } from 'n8n-workflow';
 
 // @ts-ignore
 import timezones from 'google-timezones-json';
@@ -226,7 +226,7 @@ export class Server extends AbstractServer {
 			const [key, url] = conf.split(';');
 
 			if (!key || !url) {
-				LoggerProxy.warn('Diagnostics frontend config is invalid');
+				this.logger.warn('Diagnostics frontend config is invalid');
 				telemetrySettings.enabled = false;
 			}
 
@@ -368,7 +368,7 @@ export class Server extends AbstractServer {
 		this.binaryDataService = Container.get(BinaryDataService);
 
 		await super.start();
-		LoggerProxy.debug(`Server ID: ${this.uniqueInstanceId}`);
+		this.logger.debug(`Server ID: ${this.uniqueInstanceId}`);
 
 		const cpus = os.cpus();
 		const binaryDataConfig = config.getEnv('binaryDataManager');
@@ -505,13 +505,12 @@ export class Server extends AbstractServer {
 	}
 
 	private async registerControllers(ignoredEndpoints: Readonly<string[]>) {
-		const { app, externalHooks, activeWorkflowRunner, nodeTypes } = this;
+		const { app, externalHooks, activeWorkflowRunner, nodeTypes, logger } = this;
 		const repositories = Db.collections;
 		setupAuthMiddlewares(app, ignoredEndpoints, this.restEndpoint);
 
 		const encryptionKey = await UserSettings.getEncryptionKey();
 
-		const logger = LoggerProxy;
 		const internalHooks = Container.get(InternalHooks);
 		const mailer = Container.get(UserManagementMailer);
 		const userService = Container.get(UserService);
@@ -522,7 +521,7 @@ export class Server extends AbstractServer {
 		const controllers: object[] = [
 			new EventBusController(),
 			new EventBusControllerEE(),
-			new AuthController(config, logger, internalHooks, mfaService, userService, postHog),
+			Container.get(AuthController),
 			new OwnerController(
 				config,
 				logger,
@@ -531,7 +530,7 @@ export class Server extends AbstractServer {
 				userService,
 				postHog,
 			),
-			new MeController(logger, externalHooks, internalHooks, userService),
+			Container.get(MeController),
 			new NodeTypesController(config, nodeTypes),
 			new PasswordResetController(
 				config,
@@ -573,9 +572,7 @@ export class Server extends AbstractServer {
 		}
 
 		if (config.getEnv('nodes.communityPackages.enabled')) {
-			controllers.push(
-				new NodesController(config, this.loadNodesAndCredentials, this.push, internalHooks),
-			);
+			controllers.push(Container.get(NodesController));
 		}
 
 		if (inE2ETests) {
@@ -690,7 +687,7 @@ export class Server extends AbstractServer {
 		try {
 			await Container.get(SamlService).init();
 		} catch (error) {
-			LoggerProxy.warn(`SAML initialization failed: ${error.message}`);
+			this.logger.warn(`SAML initialization failed: ${error.message}`);
 		}
 
 		// ----------------------------------------
@@ -705,7 +702,7 @@ export class Server extends AbstractServer {
 		try {
 			await Container.get(SourceControlService).init();
 		} catch (error) {
-			LoggerProxy.warn(`Source Control initialization failed: ${error.message}`);
+			this.logger.warn(`Source Control initialization failed: ${error.message}`);
 		}
 
 		// ----------------------------------------
@@ -900,7 +897,7 @@ export class Server extends AbstractServer {
 				});
 
 				if (!shared) {
-					LoggerProxy.verbose('User attempted to access workflow errors without permissions', {
+					this.logger.verbose('User attempted to access workflow errors without permissions', {
 						workflowId,
 						userId: req.user.id,
 					});
@@ -947,14 +944,14 @@ export class Server extends AbstractServer {
 				const { id: credentialId } = req.query;
 
 				if (!credentialId) {
-					LoggerProxy.error('OAuth1 credential authorization failed due to missing credential ID');
+					this.logger.error('OAuth1 credential authorization failed due to missing credential ID');
 					throw new ResponseHelper.BadRequestError('Required credential ID is missing');
 				}
 
 				const credential = await getCredentialForUser(credentialId, req.user);
 
 				if (!credential) {
-					LoggerProxy.error(
+					this.logger.error(
 						'OAuth1 credential authorization failed because the current user does not have the correct permissions',
 						{ userId: req.user.id },
 					);
@@ -1066,7 +1063,7 @@ export class Server extends AbstractServer {
 				// Update the credentials in DB
 				await Db.collections.Credentials.update(credentialId, newCredentialsData);
 
-				LoggerProxy.verbose('OAuth1 authorization successful for new credential', {
+				this.logger.verbose('OAuth1 authorization successful for new credential', {
 					userId: req.user.id,
 					credentialId,
 				});
@@ -1088,7 +1085,7 @@ export class Server extends AbstractServer {
 								req.query,
 							)}`,
 						);
-						LoggerProxy.error(
+						this.logger.error(
 							'OAuth1 callback failed because of insufficient parameters received',
 							{
 								userId: req.user?.id,
@@ -1101,7 +1098,7 @@ export class Server extends AbstractServer {
 					const credential = await getCredentialWithoutUser(credentialId);
 
 					if (!credential) {
-						LoggerProxy.error('OAuth1 callback failed because of insufficient user permissions', {
+						this.logger.error('OAuth1 callback failed because of insufficient user permissions', {
 							userId: req.user?.id,
 							credentialId,
 						});
@@ -1153,7 +1150,7 @@ export class Server extends AbstractServer {
 					try {
 						oauthToken = await axios.request(options);
 					} catch (error) {
-						LoggerProxy.error('Unable to fetch tokens for OAuth1 callback', {
+						this.logger.error('Unable to fetch tokens for OAuth1 callback', {
 							userId: req.user?.id,
 							credentialId,
 						});
@@ -1181,13 +1178,13 @@ export class Server extends AbstractServer {
 					// Save the credentials in DB
 					await Db.collections.Credentials.update(credentialId, newCredentialsData);
 
-					LoggerProxy.verbose('OAuth1 callback successful for new credential', {
+					this.logger.verbose('OAuth1 callback successful for new credential', {
 						userId: req.user?.id,
 						credentialId,
 					});
 					res.sendFile(pathResolve(TEMPLATES_DIR, 'oauth-callback.html'));
 				} catch (error) {
-					LoggerProxy.error('OAuth1 callback failed because of insufficient user permissions', {
+					this.logger.error('OAuth1 callback failed because of insufficient user permissions', {
 						userId: req.user?.id,
 						credentialId: req.query.cid,
 					});

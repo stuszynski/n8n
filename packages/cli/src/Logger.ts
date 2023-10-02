@@ -1,30 +1,39 @@
-/* eslint-disable @typescript-eslint/no-shadow */
-
-import { inspect } from 'util';
+import { Service } from 'typedi';
 import winston from 'winston';
-
-import type { IDataObject, ILogger, LogTypes } from 'n8n-workflow';
-
 import callsites from 'callsites';
+import { inspect } from 'util';
 import { basename } from 'path';
+
+import { LoggerProxy, type IDataObject, type ILogger, type LogTypes } from 'n8n-workflow';
+
 import config from '@/config';
 
+const noOp = () => {};
+const levelNames = ['debug', 'verbose', 'info', 'warn', 'error'];
+
+@Service()
 export class Logger implements ILogger {
 	private logger: winston.Logger;
 
 	constructor() {
 		const level = config.getEnv('logs.level');
 
-		const output = config
-			.getEnv('logs.output')
-			.split(',')
-			.map((output) => output.trim());
-
 		this.logger = winston.createLogger({
 			level,
 			silent: level === 'silent',
 		});
 
+		// Change all methods with higher log-level to no-op
+		for (const levelName of levelNames) {
+			if (this.logger.levels[levelName] > this.logger.levels[level]) {
+				Object.defineProperty(this, level, { value: noOp });
+			}
+		}
+
+		const output = config
+			.getEnv('logs.output')
+			.split(',')
+			.map((line) => line.trim());
 		if (output.includes('console')) {
 			let format: winston.Logform.Format;
 			if (['debug', 'verbose'].includes(level)) {
@@ -33,8 +42,8 @@ export class Logger implements ILogger {
 					winston.format.timestamp(),
 					winston.format.colorize({ all: true }),
 
-					winston.format.printf(({ level, message, timestamp, metadata }) => {
-						return `${timestamp} | ${level.padEnd(18)} | ${message}${
+					winston.format.printf(({ level: logLevel, message, timestamp, metadata }) => {
+						return `${timestamp} | ${logLevel.padEnd(18)} | ${message}${
 							// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
 							Object.keys(metadata).length ? ` ${JSON.stringify(inspect(metadata))}` : ''
 						}`;
@@ -66,9 +75,11 @@ export class Logger implements ILogger {
 				}),
 			);
 		}
+
+		LoggerProxy.init(this);
 	}
 
-	log(type: LogTypes, message: string, meta: object = {}): void {
+	log(level: LogTypes, message: string, meta: object = {}): void {
 		const callsite = callsites();
 		// We are using the third array element as the structure is as follows:
 		// [0]: this file
@@ -85,7 +96,7 @@ export class Logger implements ILogger {
 				logDetails.function = functionName;
 			}
 		}
-		this.logger.log(type, message, { ...meta, ...logDetails });
+		this.logger.log(level, message, { ...meta, ...logDetails });
 	}
 
 	// Convenience methods below
@@ -109,14 +120,4 @@ export class Logger implements ILogger {
 	warn(message: string, meta: object = {}): void {
 		this.log('warn', message, meta);
 	}
-}
-
-let activeLoggerInstance: Logger | undefined;
-
-export function getLogger() {
-	if (activeLoggerInstance === undefined) {
-		activeLoggerInstance = new Logger();
-	}
-
-	return activeLoggerInstance;
 }

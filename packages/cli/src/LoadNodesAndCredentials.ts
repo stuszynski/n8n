@@ -1,5 +1,6 @@
 import uniq from 'lodash/uniq';
 import glob from 'fast-glob';
+import { Container, Service } from 'typedi';
 import type { DirectoryLoader, Types } from 'n8n-core';
 import {
 	CUSTOM_EXTENSION_ENV,
@@ -10,13 +11,12 @@ import {
 } from 'n8n-core';
 import type {
 	ICredentialTypes,
-	ILogger,
 	INodesAndCredentials,
 	KnownNodesAndCredentials,
 	INodeTypeDescription,
 	LoadedNodesAndCredentials,
 } from 'n8n-workflow';
-import { LoggerProxy, ErrorReporterProxy as ErrorReporter } from 'n8n-workflow';
+import { ErrorReporterProxy as ErrorReporter } from 'n8n-workflow';
 
 import { createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
@@ -34,7 +34,7 @@ import {
 	inE2ETests,
 } from '@/constants';
 import { CredentialsOverwrites } from '@/CredentialsOverwrites';
-import Container, { Service } from 'typedi';
+import { Logger } from './Logger';
 
 @Service()
 export class LoadNodesAndCredentials implements INodesAndCredentials {
@@ -52,9 +52,9 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 
 	credentialTypes: ICredentialTypes;
 
-	logger: ILogger;
-
 	private downloadFolder: string;
+
+	constructor(private readonly logger: Logger) {}
 
 	async init() {
 		// Make sure the imported modules can resolve dependencies fine.
@@ -225,7 +225,7 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 				await this.generateTypesForFrontend();
 				return installedPackage;
 			} catch (error) {
-				LoggerProxy.error('Failed to save installed packages and nodes', {
+				this.logger.error('Failed to save installed packages and nodes', {
 					error: error as Error,
 					packageName,
 				});
@@ -279,7 +279,7 @@ export class LoadNodesAndCredentials implements INodesAndCredentials {
 		return description.credentials.some(({ name }) => {
 			const credType = this.types.credentials.find((t) => t.name === name);
 			if (!credType) {
-				LoggerProxy.warn(
+				this.logger.warn(
 					`Failed to load Custom API options for the node "${description.name}": Unknown credential name "${name}"`,
 				);
 				return false;

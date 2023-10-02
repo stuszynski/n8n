@@ -1,8 +1,8 @@
 import type Redis from 'ioredis';
 import type { Cluster } from 'ioredis';
-import { getDefaultRedisClient } from './RedisServiceHelper';
-import { LoggerProxy } from 'n8n-workflow';
 import config from '@/config';
+import { Logger } from '@/Logger';
+import { getDefaultRedisClient } from './RedisServiceHelper';
 
 export type RedisClientType =
 	| 'subscriber'
@@ -27,6 +27,8 @@ class RedisServiceBase {
 
 	isInitialized = false;
 
+	constructor(protected readonly logger: Logger) {}
+
 	async init(type: RedisClientType = 'client'): Promise<void> {
 		if (this.redisClient && this.isInitialized) {
 			return;
@@ -34,13 +36,13 @@ class RedisServiceBase {
 		this.redisClient = await getDefaultRedisClient(undefined, type);
 
 		this.redisClient.on('close', () => {
-			LoggerProxy.warn('Redis unavailable - trying to reconnect...');
+			this.logger.warn('Redis unavailable - trying to reconnect...');
 		});
 
 		this.redisClient.on('error', (error) => {
 			if (!String(error).includes('ECONNREFUSED')) {
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-				LoggerProxy.warn('Error with Redis: ', error);
+				this.logger.warn('Error with Redis: ', error);
 			}
 		});
 	}
